@@ -1,7 +1,8 @@
-# main.py
+# main.py - COMPLETE FIXED VERSION
 """
 Main application for the Blackjack Card Tracker Pro with enhanced blackjack rules.
 Enhanced with rules engine integration for proper game logic.
+FIXED: Updated to use "10" instead of "T" and work with improved panels.
 """
 
 import tkinter as tk
@@ -11,7 +12,7 @@ import os
 # Ensure proper imports
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from constants import SEATS, RANKS, COLORS, DEFAULT_DECKS
+from constants import SEATS, RANKS, COLORS, DEFAULT_DECKS, normalize_rank_display, normalize_rank_internal
 from ui.panels import CompPanel, SeatHandPanel
 from ui.input_panels import SharedInputPanel, PlayerOrDealerPanel
 from ui.dialogs import SeatSelectDialog
@@ -24,7 +25,7 @@ class BlackjackTrackerApp(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Blackjack Card Tracker Pro - With Rules Engine")
-        self.geometry("1800x900")
+        self.geometry("1200x800")  # Smaller window since no right panel needed
         self.configure(bg=COLORS['bg_main'])
 
         # Initialize rules engine
@@ -47,186 +48,12 @@ class BlackjackTrackerApp(tk.Tk):
 
         self._setup_ui()
         self._setup_bindings()
-        self._create_rules_display()
 
         # Prompt for seat selection after UI is built
         self.after(200, self.prompt_seat_selection)
 
-    def _create_rules_display(self):
-        """Create rules information display in the right panel."""
-        # Find the counting frame and add rules info
-        for widget in self.winfo_children():
-            if hasattr(widget, 'winfo_children'):
-                for child in widget.winfo_children():
-                    if isinstance(child, tk.Frame) and child.cget('bg') == '#2a2a2a':
-                        self._add_rules_info(child)
-                        break
-
-    def _add_rules_info(self, parent):
-        """Add rules information to the right panel."""
-        # Rules title
-        tk.Label(parent, text="HOUSE RULES",
-                 font=('Segoe UI', 14, 'bold'),
-                 bg='#2a2a2a', fg='#ffff00').pack(pady=(10, 5))
-
-        # Rules list
-        rules_text = [
-            f"• Dealer hits soft 17: {'YES' if self.rules.dealer_hits_soft_17 else 'NO'}",
-            f"• Blackjack payout: {self.rules.blackjack_payout[0]}:{self.rules.blackjack_payout[1]}",
-            f"• Double after split: {'YES' if self.rules.double_after_split else 'NO'}",
-            f"• Max splits allowed: {self.rules.max_splits}",
-            f"• Late surrender: {'YES' if self.rules.late_surrender else 'NO'}",
-            f"• Insurance allowed: {'YES' if self.rules.insurance_allowed else 'NO'}"
-        ]
-
-        for rule in rules_text:
-            tk.Label(parent, text=rule,
-                     font=('Segoe UI', 10),
-                     bg='#2a2a2a', fg='white',
-                     anchor='w').pack(pady=1, padx=20, fill='x')
-
-        # Current hand status
-        tk.Label(parent, text="CURRENT HAND STATUS",
-                 font=('Segoe UI', 12, 'bold'),
-                 bg='#2a2a2a', fg='#ffff00').pack(pady=(20, 5))
-
-        # Status display frame
-        self.status_frame = tk.Frame(parent, bg='#2a2a2a')
-        self.status_frame.pack(fill='x', padx=20)
-
-        # Action availability display
-        self.action_labels = {}
-        actions = ['Can Split', 'Can Double', 'Can Surrender', 'Is Blackjack', 'Hand Value']
-
-        for action in actions:
-            frame = tk.Frame(self.status_frame, bg='#2a2a2a')
-            frame.pack(fill='x', pady=2)
-
-            tk.Label(frame, text=f"{action}:",
-                     font=('Segoe UI', 10),
-                     bg='#2a2a2a', fg='#cccccc',
-                     width=15, anchor='w').pack(side=tk.LEFT)
-
-            label = tk.Label(frame, text="N/A",
-                             font=('Segoe UI', 10, 'bold'),
-                             bg='#2a2a2a', fg='#888888')
-            label.pack(side=tk.LEFT)
-            self.action_labels[action] = label
-
-    def convert_ui_hand_to_rules_hand(self, ui_cards, is_split=False, splits_count=0):
-        """Convert UI card list to rules engine Hand object."""
-        rule_cards = []
-        for rank, suit in ui_cards:
-            rule_cards.append(Card(rank, suit))
-        return Hand(rule_cards, is_split=is_split, splits_count=splits_count)
-
-    def update_rules_display_for_player(self):
-        """Update the rules display based on current player hand."""
-        if not self.player_panel.hands[0]:  # No cards yet
-            for label in self.action_labels.values():
-                label.config(text="N/A", fg='#888888')
-            return
-
-        # Convert current player hand to rules format
-        current_hand = self.convert_ui_hand_to_rules_hand(
-            self.player_panel.hands[self.player_panel.current_hand],
-            is_split=len(self.player_panel.hands) > 1,
-            splits_count=len(self.player_panel.hands) - 1
-        )
-
-        # Check all rules
-        can_split = self.rules.can_split(current_hand)
-        can_double = self.rules.can_double(current_hand)
-        can_surrender = self.rules.can_surrender(current_hand)
-        is_blackjack = self.rules.is_blackjack(current_hand)
-        hand_value, is_soft = self.rules.calculate_hand_value(current_hand)
-
-        # Update display
-        self.action_labels['Can Split'].config(
-            text="YES" if can_split else "NO",
-            fg='#00ff00' if can_split else '#ff4444'
-        )
-
-        self.action_labels['Can Double'].config(
-            text="YES" if can_double else "NO",
-            fg='#00ff00' if can_double else '#ff4444'
-        )
-
-        self.action_labels['Can Surrender'].config(
-            text="YES" if can_surrender else "NO",
-            fg='#00ff00' if can_surrender else '#ff4444'
-        )
-
-        self.action_labels['Is Blackjack'].config(
-            text="YES" if is_blackjack else "NO",
-            fg='#ffff00' if is_blackjack else '#888888'
-        )
-
-        value_text = f"{hand_value}" + (" (Soft)" if is_soft else " (Hard)")
-        if self.rules.is_bust(current_hand):
-            value_text += " - BUST!"
-
-        self.action_labels['Hand Value'].config(
-            text=value_text,
-            fg='#ff4444' if self.rules.is_bust(current_hand) else '#00ff00'
-        )
-
-    def validate_action_with_rules(self, action, hand_cards, is_split=False):
-        """Validate if an action is allowed according to rules."""
-        if not hand_cards:
-            return False
-
-        hand = self.convert_ui_hand_to_rules_hand(hand_cards, is_split)
-
-        if action == 'split':
-            return self.rules.can_split(hand)
-        elif action == 'double':
-            return self.rules.can_double(hand)
-        elif action == 'surrender':
-            return self.rules.can_surrender(hand)
-        elif action == 'hit':
-            return not self.rules.is_bust(hand)  # Can't hit if already bust
-        else:
-            return True  # Stand and skip are always allowed
-
-    def show_action_buttons_with_rules(self, panel):
-        """Show action buttons based on rules engine validation."""
-        if hasattr(panel, 'show_action_buttons'):
-            # Get current hand
-            current_hand_cards = panel.hands[panel.current_hand] if panel.hands else []
-            is_split_hand = len(panel.hands) > 1
-
-            # Validate each action and show/hide buttons accordingly
-            if hasattr(panel, 'hit_btn'):
-                can_hit = self.validate_action_with_rules('hit', current_hand_cards, is_split_hand)
-                if can_hit and not panel.is_done and not panel.is_busted:
-                    panel.hit_btn.pack(side=tk.LEFT, padx=1)
-
-            if hasattr(panel, 'stand_btn'):
-                panel.stand_btn.pack(side=tk.LEFT, padx=1)
-
-            if hasattr(panel, 'double_btn'):
-                can_double = self.validate_action_with_rules('double', current_hand_cards, is_split_hand)
-                if can_double and not panel.is_done and not panel.is_busted:
-                    panel.double_btn.pack(side=tk.LEFT, padx=1)
-
-            if hasattr(panel, 'surrender_btn'):
-                can_surrender = self.validate_action_with_rules('surrender', current_hand_cards, is_split_hand)
-                if can_surrender and not panel.is_done and not panel.is_busted:
-                    panel.surrender_btn.pack(side=tk.LEFT, padx=1)
-
-            if hasattr(panel, 'split_btn'):
-                can_split = self.validate_action_with_rules('split', current_hand_cards, is_split_hand)
-                if can_split and not panel.is_done and not panel.is_busted:
-                    panel.split_btn.pack(side=tk.LEFT, padx=1)
-
-            if hasattr(panel, 'skip_btn'):
-                panel.skip_btn.pack(side=tk.LEFT, padx=1)
-
     def _setup_ui(self):
         """Setup the main UI components - compact left layout without rules panel."""
-        self.geometry("1200x800")  # Smaller window since no right panel needed
-
         # Main container - everything on left side
         main_container = tk.Frame(self, bg=COLORS['bg_main'])
         main_container.pack(fill='both', expand=True, padx=8, pady=8)
@@ -264,6 +91,11 @@ class BlackjackTrackerApp(tk.Tk):
             input_container,
             self.handle_shared_card,
             self.handle_shared_undo
+        )
+        # Set up action button callbacks
+        self.shared_input_panel.set_action_callbacks(
+            on_stand=self.handle_shared_stand,
+            on_split=self.handle_shared_split
         )
         self.shared_input_panel.pack()
 
@@ -304,17 +136,32 @@ class BlackjackTrackerApp(tk.Tk):
                  font=('Segoe UI', 12, 'bold'),
                  bg='#444444', fg='white').pack(expand=True)
 
-    def _create_rules_display(self):
-        """Remove rules display - not needed."""
-        pass
+    def convert_ui_hand_to_rules_hand(self, ui_cards, is_split=False, splits_count=0):
+        """Convert UI card list to rules engine Hand object."""
+        rule_cards = []
+        for rank, suit in ui_cards:
+            # Convert 10 back to T for rules engine compatibility
+            internal_rank = normalize_rank_internal(rank)
+            rule_cards.append(Card(internal_rank, suit))
+        return Hand(rule_cards, is_split=is_split, splits_count=splits_count)
 
-    def _add_rules_info(self, parent):
-        """Remove rules info - not needed."""
-        pass
+    def validate_action_with_rules(self, action, hand_cards, is_split=False):
+        """Validate if an action is allowed according to rules."""
+        if not hand_cards:
+            return False
 
-    def update_rules_display_for_player(self):
-        """Remove rules display update - not needed."""
-        pass
+        hand = self.convert_ui_hand_to_rules_hand(hand_cards, is_split)
+
+        if action == 'split':
+            return self.rules.can_split(hand)
+        elif action == 'double':
+            return self.rules.can_double(hand)
+        elif action == 'surrender':
+            return self.rules.can_surrender(hand)
+        elif action == 'hit':
+            return not self.rules.is_bust(hand)  # Can't hit if already bust
+        else:
+            return True  # Stand and skip are always allowed
 
     def show_action_buttons_with_rules(self, panel):
         """Show action buttons - simplified for player vs other seats."""
@@ -409,11 +256,6 @@ class BlackjackTrackerApp(tk.Tk):
         self.player_rule_hands = []
         self.dealer_rule_hand = Hand([])
 
-        # Reset rules display
-        if hasattr(self, 'action_labels'):
-            for label in self.action_labels.values():
-                label.config(text="N/A", fg='#888888')
-
         self.set_focus()
 
     def set_focus(self):
@@ -482,7 +324,7 @@ class BlackjackTrackerApp(tk.Tk):
             self.set_focus()
 
     def _handle_play_phase_focus(self):
-        """Handle focus during play phase (hitting/standing)."""
+        """Handle focus during play phase (hitting/standing) - IMPROVED for splits."""
         order = list(reversed(self._active_seats))
 
         if self._focus_idx >= len(order):
@@ -497,21 +339,22 @@ class BlackjackTrackerApp(tk.Tk):
             if not self.player_panel.is_done and not self.player_panel.is_busted and not self.player_panel.is_surrendered:
                 self.player_panel.set_enabled(True)
                 self.show_action_buttons_with_rules(self.player_panel)
-                # Update rules display for current player hand
-                self.update_rules_display_for_player()
             else:
                 # Player is done, move to next
                 self.advance_play_focus()
         else:
-            # Other seat's turn
+            # Other seat's turn - check if they should still be playing
             seat_panel = self.seat_hands[seat]
-            if not seat_panel.is_done and not seat_panel.is_busted and not seat_panel.is_surrendered:
+
+            # Use the new method to check if focus should advance
+            if seat_panel.should_advance_focus():
+                # This seat is completely done, move to next player
+                self.advance_play_focus()
+            else:
+                # This seat still has hands to play
                 self.shared_input_panel.set_enabled(True)
                 seat_panel.highlight(active=True)
                 self.show_action_buttons_with_rules(seat_panel)
-            else:
-                # This seat is done, move to next
-                self.advance_play_focus()
 
     def advance_flow(self):
         """Advance to the next position in the dealing flow."""
@@ -595,7 +438,7 @@ class BlackjackTrackerApp(tk.Tk):
 
     # -- Card input handlers --
     def handle_shared_card(self, rank, suit):
-        """Handle card input from shared panel."""
+        """Handle card input from shared panel - IMPROVED for splits."""
         if self._play_phase:
             # Play phase - card goes to currently focused seat
             order = list(reversed(self._active_seats))
@@ -603,19 +446,31 @@ class BlackjackTrackerApp(tk.Tk):
                 seat = order[self._focus_idx]
                 if seat != self.seat:
                     seat_panel = self.seat_hands[seat]
-                    seat_panel.add_card(rank, suit)
+
+                    print(f"MAIN: Adding {rank}{suit} to {seat} (current_hand={seat_panel.current_hand})")  # Debug
+
+                    # Use the explicit method to ensure it goes to current hand
+                    seat_panel.add_card_to_current_hand(rank, suit)
                     self.comp_panel.log_card(rank)
 
-                    # Check if this was a double-down (auto-stand after hit)
-                    if len(seat_panel.hands[seat_panel.current_hand]) == 3:
-                        # Assume this was double if it's the 3rd card
-                        seat_panel.stand()
-                        self.advance_play_focus()
+                    # Check if current hand is done (21 or bust)
+                    if seat_panel.is_current_hand_done():
+                        print(f"MAIN: {seat} hand {seat_panel.current_hand + 1} is done")  # Debug
+                        # Current hand is done, check if more hands to play
+                        if not seat_panel.advance_to_next_split_hand():
+                            # No more hands, player is completely done
+                            print(f"MAIN: Seat {seat} - all hands completed, advancing to next player")
+                            self.advance_play_focus()
+                        else:
+                            # More split hands to play, stay on same seat
+                            print(f"MAIN: Seat {seat} - continuing with next split hand")
+                            self.set_focus()
                     else:
-                        # Continue turn, show action buttons again
+                        # Continue with current hand
+                        print(f"MAIN: {seat} hand {seat_panel.current_hand + 1} continues")  # Debug
                         self.set_focus()
         else:
-            # Dealing phase
+            # Dealing phase logic remains the same
             order = list(reversed(self._active_seats))
             if self._focus_idx >= len(order):
                 return
@@ -624,7 +479,7 @@ class BlackjackTrackerApp(tk.Tk):
             if seat == self.seat:
                 return
 
-            self.seat_hands[seat].add_card(rank, suit)
+            self.seat_hands[seat].add_card(rank, suit)  # Use regular method for dealing phase
             self.comp_panel.log_card(rank)
             self.advance_flow()
 
@@ -656,12 +511,63 @@ class BlackjackTrackerApp(tk.Tk):
                 if last_card:
                     self.comp_panel.undo_card(last_card[0])
 
+    def handle_shared_stand(self):
+        """Handle stand/skip action from shared panel - IMPROVED for splits."""
+        if self._play_phase:
+            # Stand the currently focused seat
+            order = list(reversed(self._active_seats))
+            if self._focus_idx < len(order):
+                seat = order[self._focus_idx]
+                if seat != self.seat:  # Only for other players, not your seat
+                    seat_panel = self.seat_hands[seat]
+
+                    print(f"Standing {seat} hand {seat_panel.current_hand + 1}")  # Debug
+
+                    # Use the improved stand method that handles splits
+                    completely_done = seat_panel.stand()
+
+                    if completely_done:
+                        print(f"Seat {seat} - all hands done, advancing to next player")
+                        self.advance_play_focus()
+                    else:
+                        print(f"Seat {seat} - moved to next split hand, staying on same seat")
+                        # Stay on same seat, player needs to play next split hand
+                        # Don't call advance_play_focus(), just refresh the current focus
+                        self.set_focus()
+
+    def handle_shared_split(self):
+        """Handle split action from shared panel."""
+        if self._play_phase:
+            # Split the currently focused seat
+            order = list(reversed(self._active_seats))
+            if self._focus_idx < len(order):
+                seat = order[self._focus_idx]
+                if seat != self.seat:  # Only for other players, not your seat
+                    seat_panel = self.seat_hands[seat]
+
+                    # Check if split is valid (need exactly 2 cards of same value)
+                    current_hand = seat_panel.hands[seat_panel.current_hand]
+                    if len(current_hand) == 2:
+                        rank1, rank2 = current_hand[0][0], current_hand[1][0]
+                        # Check if same value (handle T/10 conversion)
+                        val1 = 10 if rank1 in ['T', '10', 'J', 'Q', 'K'] else (11 if rank1 == 'A' else int(rank1))
+                        val2 = 10 if rank2 in ['T', '10', 'J', 'Q', 'K'] else (11 if rank2 == 'A' else int(rank2))
+
+                        if val1 == val2:
+                            if seat_panel.split_hand():
+                                print(f"Seat {seat} splits hand")
+                                # Stay focused on same seat to play first split hand
+                                self.set_focus()
+                            else:
+                                print(f"Seat {seat} - split failed")
+                        else:
+                            print(f"Seat {seat} - cannot split, cards don't match")
+                    else:
+                        print(f"Seat {seat} - cannot split, need exactly 2 cards")
+
     def on_player_card(self, rank, suit, is_hole=False):
         """Handle player card input with rules validation."""
         self.comp_panel.log_card(rank)
-
-        # Update rules display after card is added
-        self.after(100, self.update_rules_display_for_player)
 
         if self._play_phase:
             if len(self.player_panel.hands[self.player_panel.current_hand]) == 3:
@@ -676,8 +582,6 @@ class BlackjackTrackerApp(tk.Tk):
         """Handle player undo."""
         if rank:
             self.comp_panel.undo_card(rank)
-        # Update rules display after undo
-        self.after(100, self.update_rules_display_for_player)
 
     def on_dealer_card(self, rank, suit, is_hole=False):
         """Handle dealer card input."""
@@ -693,9 +597,14 @@ class BlackjackTrackerApp(tk.Tk):
             self.comp_panel.undo_card(rank)
 
     def handle_key(self, event):
-        """Handle keyboard input."""
+        """Handle keyboard input - UPDATED for 10 support."""
         char = event.char.upper()
 
+        # Handle special case for T key (convert to 10)
+        if char == 'T':
+            char = '10'
+
+        # Check if it's a valid rank
         if char in RANKS:
             if self._auto_focus:
                 if self._play_phase:

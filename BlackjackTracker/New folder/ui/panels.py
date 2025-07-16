@@ -1,6 +1,7 @@
-# ui/panels.py
+# ui/panels.py - IMPROVED VERSION
 """
 UI panels for the Blackjack Tracker application.
+IMPROVED: Better seat displays, bigger cards, clearer information layout
 """
 
 import tkinter as tk
@@ -10,135 +11,140 @@ import os
 # Add parent directory to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from constants import RANKS, COLORS
+from constants import RANKS, COLORS, normalize_rank_display, normalize_rank_internal
 
 
 class CompPanel(tk.Frame):
-    """Panel showing card composition and deck penetration - compact but complete."""
+    """Panel showing card composition and deck penetration - MUCH MORE COMPACT."""
 
     def __init__(self, parent, on_decks_change, initial_decks=8):
-        super().__init__(parent, bg=COLORS['bg_white'], bd=2, relief=tk.GROOVE, width=700, height=160)
+        super().__init__(parent, bg=COLORS['bg_white'], bd=2, relief=tk.GROOVE, width=600, height=100)  # MUCH smaller
         self.pack_propagate(False)  # Maintain fixed size
         self.decks = initial_decks
         self.on_decks_change = on_decks_change
-        self.comp = {r: 0 for r in RANKS}
+        # Use internal T for tracking, but display as 10
+        self.comp = {r: 0 for r in ['A', '2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K']}
         self._build_panel()
         self.update_display()
 
     def _build_panel(self):
-        """Build the compact but complete composition panel UI."""
-        # Left side: Shoe information (make it more compact but visible)
+        """Build the MUCH MORE COMPACT composition panel UI."""
+        # Left side: Shoe information (MUCH smaller)
         shoe = tk.Frame(self, bg=COLORS['bg_white'])
-        shoe.grid(row=0, column=0, rowspan=3, sticky='nsw', padx=4, pady=2)
+        shoe.grid(row=0, column=0, rowspan=2, sticky='nsw', padx=2, pady=1)  # Only 2 rows now
 
-        # Deck selector
-        tk.Label(shoe, text='Decks', font=('Segoe UI', 10, 'bold'), bg=COLORS['bg_white']).pack()
+        # Deck selector - SMALLER
+        deck_frame = tk.Frame(shoe, bg=COLORS['bg_white'])
+        deck_frame.pack()
+        tk.Label(deck_frame, text='Decks', font=('Segoe UI', 8, 'bold'), bg=COLORS['bg_white']).pack(side=tk.LEFT)
         self.deck_var = tk.IntVar(value=self.decks)
         dspin = tk.Spinbox(
-            shoe, from_=1, to=8, width=3,
+            deck_frame, from_=1, to=8, width=2,  # Smaller width
             textvariable=self.deck_var,
-            font=('Segoe UI', 12),
+            font=('Segoe UI', 10),  # Smaller font
             command=self.set_decks,
             justify='center'
         )
-        dspin.pack(pady=1)
+        dspin.pack(side=tk.LEFT, padx=2)
 
-        # Cards remaining - make sure this is visible
-        tk.Label(shoe, text='Cards Left', font=('Segoe UI', 10, 'bold'), bg=COLORS['bg_white']).pack(pady=(4, 0))
+        # Cards remaining - COMPACT
+        cards_frame = tk.Frame(shoe, bg=COLORS['bg_white'])
+        cards_frame.pack()
+        tk.Label(cards_frame, text='Left:', font=('Segoe UI', 8, 'bold'), bg=COLORS['bg_white']).pack(side=tk.LEFT)
         self.cards_left_label = tk.Label(
-            shoe, text="416",
-            font=('Segoe UI', 14, 'bold'),
+            cards_frame, text="416",
+            font=('Segoe UI', 11, 'bold'),  # Smaller font
             fg=COLORS['fg_blue'],
             bg=COLORS['bg_white']
         )
-        self.cards_left_label.pack(pady=1)
+        self.cards_left_label.pack(side=tk.LEFT, padx=2)
 
-        # Penetration section - make sure bar is visible
-        tk.Label(shoe, text='Penetration', font=('Segoe UI', 10, 'bold'), bg=COLORS['bg_white']).pack(pady=(4, 1))
+        # Penetration - COMPACT
+        pen_frame = tk.Frame(shoe, bg=COLORS['bg_white'])
+        pen_frame.pack()
+        tk.Label(pen_frame, text='Pen:', font=('Segoe UI', 8, 'bold'), bg=COLORS['bg_white']).pack(side=tk.LEFT)
         self.pen_bar = tk.Canvas(
-            shoe, width=70, height=16,
+            pen_frame, width=40, height=10,  # Much smaller
             bg='#e0e0e0', bd=1,
-            highlightthickness=1, highlightbackground='#666'
+            highlightthickness=0
         )
-        self.pen_bar.pack(pady=1)
-        self.pen_label = tk.Label(shoe, text="0.0%", font=('Segoe UI', 10, 'bold'), bg=COLORS['bg_white'])
-        self.pen_label.pack(pady=1)
+        self.pen_bar.pack(side=tk.LEFT, padx=2)
+        self.pen_label = tk.Label(pen_frame, text="0.0%", font=('Segoe UI', 8, 'bold'), bg=COLORS['bg_white'])
+        self.pen_label.pack(side=tk.LEFT, padx=1)
 
-        # Right side: Card composition grid
+        # Right side: Card composition grid - MUCH MORE COMPACT
         self._build_composition_grid()
 
     def _build_composition_grid(self):
-        """Build the card composition display grid."""
-        # Rank headers - compact but readable
-        for ci, r in enumerate(RANKS):
+        """Build the card composition display grid - COMPACT VERSION."""
+        # Rank headers - SMALLER
+        display_ranks = [normalize_rank_display(r) for r in
+                         ['A', '2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K']]
+        for ci, r in enumerate(display_ranks):
             tk.Label(
                 self, text=r,
-                font=('Segoe UI', 12, 'bold'),
+                font=('Segoe UI', 9, 'bold'),  # Smaller font
                 bg=COLORS['bg_white'],
-                width=3
-            ).grid(row=0, column=ci + 1, padx=1, pady=2)
+                width=2  # Smaller width
+            ).grid(row=0, column=ci + 1, padx=1, pady=1)
 
-        # Composition row
-        tk.Label(
-            self, text='Dealt',
-            font=('Segoe UI', 10, 'bold'),
-            bg=COLORS['bg_white']
-        ).grid(row=1, column=0, sticky='e', padx=(0, 4))
+        # Combined composition/remaining row - SINGLE ROW
+        internal_ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K']
 
         self.comp_labels = {}
-        for ci, r in enumerate(RANKS):
-            lbl = tk.Label(
-                self, text='0',
-                font=('Segoe UI', 11, 'bold'),
-                width=3, height=1,
+        self.rem_labels = {}
+
+        for ci, r in enumerate(internal_ranks):
+            # Create frame for both dealt and remaining
+            cell_frame = tk.Frame(self, bg=COLORS['bg_white'])
+            cell_frame.grid(row=1, column=ci + 1, padx=1, pady=1)
+
+            # Dealt count (top, smaller)
+            dealt_lbl = tk.Label(
+                cell_frame, text='0',
+                font=('Segoe UI', 8, 'bold'),  # Smaller font
+                width=2, height=1,
                 fg=COLORS['fg_comp_cell'],
                 bg=COLORS['bg_comp_cell'],
                 bd=1, relief=tk.SUNKEN
             )
-            lbl.grid(row=1, column=ci + 1, padx=1, pady=1)
-            self.comp_labels[r] = lbl
+            dealt_lbl.pack()
+            self.comp_labels[r] = dealt_lbl
 
-        # Remaining row
-        tk.Label(
-            self, text='Remain',
-            font=('Segoe UI', 10, 'bold'),
-            bg=COLORS['bg_white']
-        ).grid(row=2, column=0, sticky='e', padx=(0, 4))
-
-        self.rem_labels = {}
-        for ci, r in enumerate(RANKS):
-            lbl = tk.Label(
-                self, text='32',
-                font=('Segoe UI', 11, 'bold'),
-                width=3, height=1,
+            # Remaining count (bottom, smaller)
+            remain_lbl = tk.Label(
+                cell_frame, text='32',
+                font=('Segoe UI', 8, 'bold'),  # Smaller font
+                width=2, height=1,
                 fg=COLORS['fg_white'],
                 bg=COLORS['bg_rem_cell'],
                 bd=1, relief=tk.SUNKEN
             )
-            lbl.grid(row=2, column=ci + 1, padx=1, pady=(1, 4))
-            self.rem_labels[r] = lbl
+            remain_lbl.pack()
+            self.rem_labels[r] = remain_lbl
 
     def update_display(self):
-        """Update all display elements - ensure everything shows."""
+        """Update all display elements."""
         d = self.decks
+        internal_ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K']
 
         # Update composition and remaining counts
-        for r in RANKS:
+        for r in internal_ranks:
             dealt = self.comp[r]
             remain = d * 4 - dealt
             self.comp_labels[r].config(text=str(dealt))
             self.rem_labels[r].config(text=str(remain))
 
-        # Update cards remaining - make sure this updates
+        # Update cards remaining
         cards_rem = self.cards_left()
         self.cards_left_label.config(text=str(cards_rem))
 
-        # Update penetration bar - ensure it's visible
+        # Update penetration bar
         pct, seen, total = self.penetration()
         self.pen_bar.delete("all")
         if total > 0:
-            width = int((pct / 100) * 70)  # Match canvas width
-            self.pen_bar.create_rectangle(0, 0, width, 16, fill=COLORS['fg_dealer'], outline="")
+            width = int((pct / 100) * 40)  # Match smaller canvas width
+            self.pen_bar.create_rectangle(0, 0, width, 10, fill=COLORS['fg_dealer'], outline="")
         self.pen_label.config(text=f"{pct:.1f}%")
 
     def set_decks(self):
@@ -149,24 +155,27 @@ class CompPanel(tk.Frame):
 
     def reset(self):
         """Reset all composition counts."""
-        self.comp = {r: 0 for r in RANKS}
+        self.comp = {r: 0 for r in ['A', '2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K']}
         self.update_display()
 
     def log_card(self, rank):
-        """Log a dealt card."""
-        if rank != "?":  # Don't log mystery cards
-            self.comp[rank] += 1
+        """Log a dealt card - convert 10 to T internally."""
+        internal_rank = normalize_rank_internal(rank)
+        if internal_rank != "?":  # Don't log mystery cards
+            self.comp[internal_rank] += 1
             self.update_display()
 
     def undo_card(self, rank):
-        """Undo a dealt card."""
-        if rank != "?" and self.comp[rank] > 0:
-            self.comp[rank] -= 1
+        """Undo a dealt card - convert 10 to T internally."""
+        internal_rank = normalize_rank_internal(rank)
+        if internal_rank != "?" and self.comp[internal_rank] > 0:
+            self.comp[internal_rank] -= 1
             self.update_display()
 
     def cards_left(self):
         """Calculate cards remaining in shoe."""
-        return sum(self.decks * 4 - self.comp[r] for r in RANKS)
+        return sum(
+            self.decks * 4 - self.comp[r] for r in ['A', '2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K'])
 
     def penetration(self):
         """Calculate penetration percentage."""
@@ -175,33 +184,12 @@ class CompPanel(tk.Frame):
         pct = (seen / total) * 100 if total > 0 else 0
         return pct, seen, total
 
-    def update_display(self):
-        """Update all display elements."""
-        d = self.decks
-
-        # Update composition and remaining counts
-        for r in RANKS:
-            self.comp_labels[r].config(text=str(self.comp[r]))
-            rem = d * 4 - self.comp[r]
-            self.rem_labels[r].config(text=str(rem))
-
-        # Update cards remaining
-        cards_rem = self.cards_left()
-        self.cards_left_label.config(text=str(cards_rem))
-
-        # Update penetration bar
-        pct, seen, total = self.penetration()
-        self.pen_bar.delete("all")
-        width = int((pct / 100) * 48)
-        self.pen_bar.create_rectangle(0, 0, width, 14, fill=COLORS['fg_dealer'])
-        self.pen_label.config(text=f"{pct:.1f}%")
-
 
 class SeatHandPanel(tk.Frame):
-    """Ultra-compact panel for player seats - only skip button needed."""
+    """IMPROVED seat panel - SMALLER but still clear, optimized for space."""
 
     def __init__(self, parent, seat, is_player=False, is_your_seat=False, on_action=None):
-        super().__init__(parent, bg=COLORS['bg_panel'], width=70, height=80)
+        super().__init__(parent, bg=COLORS['bg_panel'], width=90, height=110)  # SMALLER size
         self.seat = seat
         self.is_player = is_player
         self.is_your_seat = is_your_seat
@@ -211,71 +199,103 @@ class SeatHandPanel(tk.Frame):
         self.is_busted = False
         self.is_surrendered = False
         self.is_done = False
-        self.pack_propagate(False)  # Maintain minimal fixed size
+        self.pack_propagate(False)  # Maintain fixed size
         self._build_panel()
 
     def _build_panel(self):
-        """Build the ultra-compact seat hand display with only skip button."""
-        # Seat label (smaller)
+        """Build the improved seat display with SMALLER but clear layout."""
+        # Seat label with background color coding - SMALLER
+        seat_color = self._get_background_color()
+        seat_frame = tk.Frame(self, bg=seat_color, height=20)  # Smaller height
+        seat_frame.pack(fill='x')
+        seat_frame.pack_propagate(False)
+
         seat_label = tk.Label(
-            self, text=self.seat,
-            font=('Segoe UI', 8, 'bold'),
-            bg=COLORS['bg_panel'],
+            seat_frame, text=self.seat,
+            font=('Segoe UI', 10, 'bold'),  # Smaller font
+            bg=seat_color,
             fg=COLORS['fg_white']
         )
-        seat_label.pack()
+        seat_label.pack(expand=True)
 
-        # Score display (compact)
+        # Score display (prominent but smaller)
         self.score_label = tk.Label(
             self, text="",
-            font=('Segoe UI', 8, 'bold'),
+            font=('Segoe UI', 12, 'bold'),  # Smaller font
             bg=COLORS['bg_panel'],
-            fg='#ffff00'
+            fg='#ffff00',  # Bright yellow
+            height=1
         )
-        self.score_label.pack()
+        self.score_label.pack(pady=1)
 
-        # Status display (tiny)
+        # Status display
         self.status_label = tk.Label(
             self, text="",
-            font=('Segoe UI', 6),
+            font=('Segoe UI', 8, 'bold'),  # Smaller font
             bg=COLORS['bg_panel'],
             fg='#ff4444'
         )
         self.status_label.pack()
 
-        # Card display (very compact)
-        self.display_frame = tk.Frame(self, bg=COLORS['bg_panel'])
+        # Card display area - SMALLER
+        self.display_frame = tk.Frame(self, bg=COLORS['bg_panel'], height=60)  # Smaller height
         self.display_frame.pack(fill='x', expand=True, pady=1)
+        self.display_frame.pack_propagate(False)
 
         self.displays = []
+        self.card_widgets = []
         self._add_hand_display()
 
-        # Only skip button for other seats
+        # Only skip button for other seats (smaller)
         self.action_frame = tk.Frame(self, bg=COLORS['bg_panel'])
         self.action_frame.pack()
 
         self.skip_btn = tk.Button(
-            self.action_frame, text='SKIP', width=6,
-            font=('Segoe UI', 6), command=lambda: self._action('skip')
+            self.action_frame, text='SKIP', width=6,  # Smaller width
+            font=('Segoe UI', 7), command=lambda: self._action('skip')  # Smaller font
         )
 
         self._hide_action_buttons()
 
+    def create_seat_card_widget(self, rank, suit, parent):
+        """Create a card widget optimized for seat display - SMALLER but clear."""
+        # Determine card color based on suit
+        if suit in ['♥', '♦']:
+            card_color = '#ff4444'  # Red
+        else:
+            card_color = 'black'
+
+        # Display rank (show 10 instead of T)
+        display_rank = normalize_rank_display(rank)
+
+        # Create card frame - SMALLER for compact seats
+        card_frame = tk.Frame(parent, bg='white', bd=1, relief=tk.RAISED, width=25, height=35)  # Smaller
+        card_frame.pack_propagate(False)
+        card_frame.pack(side=tk.LEFT, padx=1, pady=1)
+
+        # Card rank (center) - SMALLER font
+        rank_label = tk.Label(card_frame, text=display_rank, font=('Arial', 7, 'bold'),
+                              fg=card_color, bg='white')
+        rank_label.pack(expand=True)
+
+        # Card suit (bottom) - SMALLER font
+        suit_label = tk.Label(card_frame, text=suit, font=('Arial', 8, 'bold'),
+                              fg=card_color, bg='white')
+        suit_label.pack()
+
+        return card_frame
+
     def _add_hand_display(self):
-        """Add a very compact hand display."""
+        """Add a hand display area for card graphics."""
         bg_color = self._get_background_color()
 
-        display = tk.Label(
-            self.display_frame, text="",
-            font=('Consolas', 6),
-            bg=bg_color,
-            fg=COLORS['fg_white'],
-            anchor='w',
-            width=8, height=2,
-            bd=1, relief=tk.SUNKEN
+        hand_frame = tk.Frame(
+            self.display_frame,
+            bg=COLORS['bg_panel']
         )
-        display.pack(fill='x', pady=1)
-        self.displays.append(display)
+        hand_frame.pack(fill='both', expand=True, pady=1)
+        self.displays.append(hand_frame)
+        self.card_widgets.append([])
 
     def _get_background_color(self):
         """Get the appropriate background color for this seat."""
@@ -300,10 +320,10 @@ class SeatHandPanel(tk.Frame):
         if len(hand) != 2:
             return False
 
-        # Check if both cards have same value
+        # Check if both cards have same value (handle T/10 conversion)
         rank1, rank2 = hand[0][0], hand[1][0]
-        val1 = 10 if rank1 in ['T', 'J', 'Q', 'K'] else (11 if rank1 == 'A' else int(rank1))
-        val2 = 10 if rank2 in ['T', 'J', 'Q', 'K'] else (11 if rank2 == 'A' else int(rank2))
+        val1 = 10 if rank1 in ['T', '10', 'J', 'Q', 'K'] else (11 if rank1 == 'A' else int(rank1))
+        val2 = 10 if rank2 in ['T', '10', 'J', 'Q', 'K'] else (11 if rank2 == 'A' else int(rank2))
 
         return val1 == val2
 
@@ -320,7 +340,7 @@ class SeatHandPanel(tk.Frame):
         return len(self.hands[hand_idx]) == 2 and len(self.hands) == 1  # Only initial hand
 
     def split_hand(self):
-        """Split the current hand into two hands."""
+        """Split the current hand into two hands and manage hand progression."""
         if not self.can_split():
             return False
 
@@ -335,8 +355,85 @@ class SeatHandPanel(tk.Frame):
 
         # Add new display
         self._add_hand_display()
+
+        # Reset current hand to 0 to play first split hand
+        self.current_hand = 0
+        self.is_done = False  # Make sure we're not marked as done
+
         self.update_display()
         return True
+
+    def advance_to_next_split_hand(self):
+        """Advance to the next split hand if available."""
+        if self.current_hand < len(self.hands) - 1:
+            self.current_hand += 1
+            self.is_done = False  # Reset done status for new hand
+            return True  # More hands to play
+        else:
+            self.is_done = True  # All hands completed
+            return False  # No more hands
+
+    def stand(self):
+        """Mark current hand as done and check if we need to play more split hands."""
+        if len(self.hands) > 1:  # Split hands exist
+            if self.current_hand < len(self.hands) - 1:
+                # More split hands to play, advance to next
+                self.current_hand += 1
+                print(f"  -> Advanced to hand {self.current_hand + 1}")  # Debug
+                self.update_display()
+                return False  # Still have hands to play
+            else:
+                # All split hands completed
+                self.is_done = True
+                print(f"  -> All hands completed")  # Debug
+                self.update_display()
+                return True  # Completely done
+        else:
+            # Single hand, just stand
+            self.is_done = True
+            self.update_display()
+            return True  # Completely done
+
+    def add_card(self, rank, suit, hand_idx=None):
+        """Add a card to specified hand - FIXED to respect current_hand."""
+        # FORCE use of current_hand if no hand_idx specified
+        target_hand = self.current_hand if hand_idx is None else hand_idx
+
+        if target_hand >= len(self.hands):
+            print(f"ERROR: Trying to add card to hand {target_hand}, but only have {len(self.hands)} hands")
+            return
+
+        print(
+            f"  -> Adding {rank}{suit} to {self.seat} hand {target_hand + 1} (current_hand={self.current_hand})")  # Debug
+        self.hands[target_hand].append((rank, suit))
+
+        # Check for bust on the specific hand
+        score = self.calculate_score(target_hand)
+        if score > 21:
+            print(f"  -> Hand {target_hand + 1} busted with {score}")  # Debug
+            # Only set busted if it's the current hand
+            if target_hand == self.current_hand:
+                self.is_busted = True
+
+        self.update_display()
+
+    def is_current_hand_done(self):
+        """Check if the current hand specifically is done (bust, 21, etc)."""
+        if self.is_busted or self.is_surrendered:
+            return True
+
+        # Check if current hand is at 21 or busted
+        current_score = self.calculate_score(self.current_hand)
+        return current_score >= 21
+
+    def should_advance_focus(self):
+        """Determine if focus should advance to next player or stay on current player."""
+        if len(self.hands) == 1:
+            # Single hand - advance if done
+            return self.is_done or self.is_busted or self.is_surrendered
+        else:
+            # Split hands - check if ALL hands are done
+            return self.current_hand >= len(self.hands) - 1 and (self.is_done or self.is_busted or self.is_surrendered)
 
     def calculate_score(self, hand_idx=None):
         """Calculate blackjack score for specified hand."""
@@ -356,11 +453,11 @@ class SeatHandPanel(tk.Frame):
         for rank, suit in hand:
             if rank in ['J', 'Q', 'K']:
                 total += 10
+            elif rank in ['T', '10']:  # Handle both T and 10
+                total += 10
             elif rank == 'A':
                 aces += 1
                 total += 11
-            elif rank == 'T':
-                total += 10
             else:
                 total += int(rank)
 
@@ -373,21 +470,39 @@ class SeatHandPanel(tk.Frame):
 
     def get_score_display(self, hand_idx=None):
         """Get formatted score display text."""
+        # Use current_hand if no hand_idx specified
+        if hand_idx is None:
+            hand_idx = self.current_hand
+
         score = self.calculate_score(hand_idx)
         if score == "":
             return ""
 
-        if hand_idx is None:
-            hand_idx = self.current_hand
+        if hand_idx >= len(self.hands):
+            return ""
 
         hand = self.hands[hand_idx]
 
         if score > 21:
-            return f"{score} 💥"  # Bust icon
+            return f"{score}"  # Just the number for seats
         elif score == 21 and len(hand) == 2:
-            return f"{score} ⭐"  # Blackjack icon
+            return f"BJ"  # Blackjack abbreviation
         else:
             return str(score)
+
+    # REMOVE any duplicate add_card method and replace with this definitive one
+    def add_card_to_current_hand(self, rank, suit):
+        """Explicitly add card to current hand - for debugging."""
+        print(f"EXPLICIT: Adding {rank}{suit} to {self.seat} current hand {self.current_hand + 1}")
+        self.hands[self.current_hand].append((rank, suit))
+
+        # Check for bust
+        score = self.calculate_score(self.current_hand)
+        if score > 21:
+            print(f"EXPLICIT: Hand {self.current_hand + 1} busted with {score}")
+            self.is_busted = True
+
+        self.update_display()
 
     def add_card(self, rank, suit, hand_idx=None):
         """Add a card to specified hand."""
@@ -420,11 +535,17 @@ class SeatHandPanel(tk.Frame):
 
     def reset(self):
         """Clear all cards and reset state."""
+        # Clear all card widgets first
+        for hand_widgets in self.card_widgets:
+            for widget in hand_widgets:
+                widget.destroy()
+
         self.hands = [[]]
         self.current_hand = 0
         self.is_busted = False
         self.is_surrendered = False
         self.is_done = False
+        self.card_widgets = [[]]
 
         # Reset displays
         for display in self.displays[1:]:
@@ -460,40 +581,79 @@ class SeatHandPanel(tk.Frame):
         self.skip_btn.pack_forget()
 
     def update_display(self):
-        """Update the display with current cards and scores."""
-        # Update each hand display
-        for i, (hand, display) in enumerate(zip(self.hands, self.displays)):
-            disp = ""
-            for r, s in hand:
-                disp += f"{r}{s} "
-            display.config(text=disp.strip())
+        """Update the display with current cards and scores - IMPROVED for splits."""
+        # Clear all existing card widgets
+        for hand_widgets in self.card_widgets:
+            for widget in hand_widgets:
+                widget.destroy()
 
-            # Highlight current hand
-            if i == self.current_hand:
-                display.config(relief=tk.RIDGE, bd=3)
-            else:
-                display.config(relief=tk.SUNKEN, bd=2)
+        # Reset card widgets tracking
+        self.card_widgets = []
+
+        # Update each hand display
+        for i, hand in enumerate(self.hands):
+            if i >= len(self.displays):
+                self._add_hand_display()
+
+            display_frame = self.displays[i]
+            self.card_widgets.append([])
+
+            # Clear the display frame
+            for widget in display_frame.winfo_children():
+                widget.destroy()
+
+            # Add hand indicator for splits
+            if len(self.hands) > 1:
+                hand_label = tk.Label(
+                    display_frame,
+                    text=f"H{i + 1}" + (" ←" if i == self.current_hand else ""),
+                    font=('Segoe UI', 6, 'bold'),
+                    bg=COLORS['bg_panel'],
+                    fg='#ffff00' if i == self.current_hand else '#888888'
+                )
+                hand_label.pack()
+
+            # Add cards for this hand
+            for rank, suit in hand:
+                card_widget = self.create_seat_card_widget(rank, suit, display_frame)
+                self.card_widgets[i].append(card_widget)
 
         # Update score display (show current hand score)
-        score_text = self.get_score_display()
-        self.score_label.config(text=score_text)
+        if len(self.hands) > 1:
+            # For splits, show current hand score with indicator
+            current_score = self.get_score_display(self.current_hand)
+            self.score_label.config(text=f"H{self.current_hand + 1}: {current_score}")
+        else:
+            # Single hand, show normal score
+            score_text = self.get_score_display()
+            self.score_label.config(text=score_text)
 
         # Update status
         if self.is_surrendered:
-            self.status_label.config(text="SURRENDERED")
+            self.status_label.config(text="SUR")
         elif self.is_busted:
             self.status_label.config(text="BUST")
         elif self.is_done:
-            self.status_label.config(text="STAND")
+            if len(self.hands) > 1:
+                self.status_label.config(text="DONE")
+            else:
+                self.status_label.config(text="STAND")
         else:
-            self.status_label.config(text="")
+            if len(self.hands) > 1:
+                self.status_label.config(text=f"HAND {self.current_hand + 1}")
+            else:
+                self.status_label.config(text="")
 
     def highlight(self, active=True):
         """Highlight or unhighlight this seat."""
+        # Update the seat label background color
+        seat_frame = self.winfo_children()[0]  # First child is seat frame
+        seat_label = seat_frame.winfo_children()[0]  # First child of seat frame
+
         if active:
-            for display in self.displays:
-                display.config(bg=COLORS['bg_active_seat'])
+            seat_frame.config(bg=COLORS['bg_active_seat'])
+            seat_label.config(bg=COLORS['bg_active_seat'])
         else:
             bg_color = self._get_background_color()
-            for display in self.displays:
-                display.config(bg=bg_color)
+            seat_frame.config(bg=bg_color)
+            seat_label.config(bg=bg_color)

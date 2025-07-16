@@ -1,10 +1,11 @@
 # constants.py
 """
 Constants and configuration for the Blackjack Tracker application.
+UPDATED: T changed to 10 for better readability
 """
 
-# Card definitions
-RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K']
+# Card definitions - CHANGED: T → 10
+RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']
 SUITS = ['♠', '♥', '♦', '♣']
 SUIT_KEYS = {'S': '♠', 'H': '♥', 'D': '♦', 'C': '♣'}
 
@@ -40,3 +41,15 @@ COLORS = {
 # Utility functions
 def total_cards(decks):
     return decks * 52
+
+
+# Helper function to normalize rank display
+def normalize_rank_display(rank):
+    """Convert T to 10 for display purposes."""
+    return '10' if rank == 'T' else rank
+
+
+# Helper function to normalize rank for internal logic
+def normalize_rank_internal(rank):
+    """Convert 10 to T for internal logic compatibility."""
+    return 'T' if rank == '10' else rank

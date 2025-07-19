@@ -2,6 +2,8 @@ import tkinter as tk
 import sys
 import os
 
+from counting import CountManager
+from ui.count_panel import CountPanel
 # Ensure proper imports
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
@@ -34,6 +36,8 @@ class BlackjackTrackerApp(tk.Tk):
         self.game_state = GameState(DEFAULT_DECKS)
         self.action_handler = ActionHandler(self)
         self.focus_manager = FocusManager(self.game_state)
+        # ADD THIS: Initialize counting system
+        self.count_manager = CountManager(DEFAULT_DECKS)
 
         self._setup_ui()
         self._setup_bindings()
@@ -41,22 +45,43 @@ class BlackjackTrackerApp(tk.Tk):
         # Prompt for seat selection
         self.after(200, self.prompt_seat_selection)
 
+    def _calculate_aces_left(self):
+        """Calculate aces remaining based on composition panel."""
+        total_aces = self.game_state.decks * 4
+        aces_dealt = self.game_state.comp_panel.comp.get('A', 0)
+        return total_aces - aces_dealt
+
+    def _update_counting_display(self):
+        """Update the counting panel display."""
+        cards_left = self.game_state.comp_panel.cards_left()
+        aces_left = self._calculate_aces_left()
+        self.count_panel.update_panel(cards_left, aces_left, self.game_state.decks)
+
+    # In your main.py _setup_ui method, replace the top section with this:
+
+    # Alternative approach for even tighter left alignment:
+
     def _setup_ui(self):
-        """Setup UI without debug components."""
-        # Main container
+        """Setup UI with enlarged composition panel and tight vertical spacing."""
+        # Main container - TIGHT spacing
         main_container = tk.Frame(self, bg=COLORS['bg_main'])
-        main_container.pack(fill='both', expand=True, padx=8, pady=8)
+        main_container.pack(fill='both', expand=True, padx=(2, 8), pady=6)  # Reduced top/bottom padding
 
-        # 1. Composition panel
-        comp_container = tk.Frame(main_container, bg=COLORS['bg_main'])
-        comp_container.pack(anchor='w', pady=4)
+        # TOP SECTION: Enlarged composition + counting panel
+        top_section = tk.Frame(main_container, bg=COLORS['bg_main'])
+        top_section.pack(fill='x', pady=(0, 6))  # Reduced bottom padding
 
-        self.game_state.comp_panel = CompPanel(comp_container, self.on_decks_change, self.game_state.decks)
-        self.game_state.comp_panel.pack()
+        # LEFT: ENLARGED Composition panel
+        self.game_state.comp_panel = CompPanel(top_section, self.on_decks_change, self.game_state.decks)
+        self.game_state.comp_panel.pack(side=tk.LEFT, anchor='nw', padx=0, pady=0)
 
-        # 2. Player seats
+        # RIGHT: Counting panel
+        self.count_panel = CountPanel(top_section, self.count_manager)
+        self.count_panel.pack(side=tk.RIGHT, anchor='ne')
+
+        # SEATS SECTION: Reduced spacing
         seats_container = tk.Frame(main_container, bg=COLORS['bg_main'])
-        seats_container.pack(anchor='w', pady=4)
+        seats_container.pack(fill='x', pady=(0, 6))  # Tight spacing
 
         tk.Label(seats_container, text="SEATS", font=('Segoe UI', 9, 'bold'),
                  bg=COLORS['bg_main'], fg=COLORS['fg_white']).pack(anchor='w')
@@ -71,9 +96,9 @@ class BlackjackTrackerApp(tk.Tk):
             )
             self.game_state.seat_hands[seat].pack(side=tk.LEFT, padx=1)
 
-        # 3. Shared input panel
+        # SHARED INPUT SECTION: Reduced spacing
         input_container = tk.Frame(main_container, bg=COLORS['bg_main'])
-        input_container.pack(anchor='w', pady=4)
+        input_container.pack(fill='x', pady=(0, 6))  # Tight spacing
 
         self.game_state.shared_input_panel = SharedInputPanel(
             input_container,
@@ -84,14 +109,14 @@ class BlackjackTrackerApp(tk.Tk):
             on_stand=self.handle_shared_stand,
             on_split=self.handle_shared_split
         )
-        self.game_state.shared_input_panel.pack()
+        self.game_state.shared_input_panel.pack(anchor='w')
 
-        # 4. Game panels
-        game_panels_container = tk.Frame(main_container, bg=COLORS['bg_main'], height=320)
-        game_panels_container.pack(anchor='w', fill='x', pady=8)
+        # GAME PANELS SECTION: PULLED UP - reduced spacing and height
+        game_panels_container = tk.Frame(main_container, bg=COLORS['bg_main'], height=280)  # Reduced height
+        game_panels_container.pack(fill='x', pady=(0, 4))  # Much tighter spacing
         game_panels_container.pack_propagate(False)
 
-        # Dealer panel
+        # Dealer panel (left side)
         dealer_container = tk.Frame(game_panels_container, bg=COLORS['bg_main'], width=400)
         dealer_container.pack(side=tk.LEFT, fill='y', anchor='nw', padx=(0, 10))
         dealer_container.pack_propagate(False)
@@ -101,13 +126,12 @@ class BlackjackTrackerApp(tk.Tk):
             self.on_dealer_card,
             self.on_dealer_undo,
             hole_card_reveal=True,
-            on_global_undo=self.handle_shared_undo,  # <-- add this
-            undo_manager=self.action_handler.undo_manager  # <-- and this
+            on_global_undo=self.handle_shared_undo,
+            undo_manager=self.action_handler.undo_manager
         )
-
         self.game_state.dealer_panel.pack(fill='both', expand=True)
 
-        # Player panel
+        # Player panel (right side)
         player_container = tk.Frame(game_panels_container, bg=COLORS['bg_main'], width=400)
         player_container.pack(side=tk.LEFT, fill='y', anchor='nw')
         player_container.pack_propagate(False)
@@ -117,10 +141,9 @@ class BlackjackTrackerApp(tk.Tk):
             self.on_player_card,
             self.on_player_undo,
             on_action=self.handle_player_action,
-            on_global_undo=self.handle_shared_undo,  # keep this
-            undo_manager=self.action_handler.undo_manager  # <-- add this
+            on_global_undo=self.handle_shared_undo,
+            undo_manager=self.action_handler.undo_manager
         )
-
         self.game_state.player_panel.pack(fill='both', expand=True)
 
         # REMOVED: Debug status bar and dialog area
@@ -163,12 +186,22 @@ class BlackjackTrackerApp(tk.Tk):
     def on_decks_change(self):
         """Handle deck change."""
         print("DECKS_CHANGE: Deck count changed")
-        self.game_state.set_decks(self.game_state.comp_panel.decks)
+        new_decks = self.game_state.comp_panel.decks
+        self.game_state.set_decks(new_decks)
+
+        # ADD THIS: Update counting systems
+        self.count_manager.set_decks(new_decks)
+        self._update_counting_display()
 
     def reset_flow(self):
         """Reset game."""
         print("RESET_FLOW: Resetting game flow")
         self.game_state.reset_game()
+
+        # ADD THIS: Reset counting systems
+        self.count_manager.reset()
+        self.count_panel.reset_displays()
+
         self.set_focus()
 
     def set_focus(self):
@@ -296,6 +329,10 @@ class BlackjackTrackerApp(tk.Tk):
         try:
             print(f"\nON_PLAYER_CARD: {rank}{suit} (hole={is_hole})")
             self.game_state.log_card(rank)
+            # ADD THIS: Update counting systems (only for non-hole cards)
+            if not is_hole:
+                self.count_manager.add_card(rank)
+                self._update_counting_display()
 
             if self.game_state.is_play_phase():
                 print("ON_PLAYER_CARD: In play phase")
@@ -349,6 +386,9 @@ class BlackjackTrackerApp(tk.Tk):
             print(f"ON_DEALER_CARD: {rank}{suit} (hole={is_hole})")
             if not is_hole:
                 self.game_state.log_card(rank)
+                # ADD THIS: Update counting systems (only for non-hole cards)
+                self.count_manager.add_card(rank)
+                self._update_counting_display()
             if not self.game_state.is_play_phase():
                 self.advance_flow()
         except Exception as e:
@@ -369,6 +409,9 @@ class BlackjackTrackerApp(tk.Tk):
         try:
             print(f"HANDLE_SHARED_CARD: {rank}{suit}")
             result = self.action_handler.handle_shared_card(rank, suit)
+            # ADD THIS: Update counting systems
+            self.count_manager.add_card(rank)
+            self._update_counting_display()
             return result
         except Exception as e:
             print(f"ERROR in handle_shared_card: {e}")
@@ -379,7 +422,11 @@ class BlackjackTrackerApp(tk.Tk):
         """GLOBAL UNDO - Handle shared undo across all panels."""
         try:
             print("HANDLE_SHARED_UNDO: Global undo called")
-            return self.action_handler.handle_shared_undo()
+            result = self.action_handler.handle_shared_undo()
+            # ADD THIS: Sync counting systems after undo
+            self._sync_counting_systems()
+
+            return result
         except Exception as e:
             print(f"ERROR in handle_shared_undo: {e}")
 
@@ -446,6 +493,21 @@ class BlackjackTrackerApp(tk.Tk):
             player_panel.is_done = True
             player_panel.update_display()
             self.advance_play_focus()
+
+    def _sync_counting_systems(self):
+        """Sync counting systems with current composition panel state."""
+        # Reset counts
+        self.count_manager.reset()
+
+        # Re-add all cards from composition panel
+        for rank in ['A', '2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K']:
+            count = self.game_state.comp_panel.comp.get(rank, 0)
+            display_rank = '10' if rank == 'T' else rank
+            for _ in range(count):
+                self.count_manager.add_card(display_rank)
+
+        # Update display
+        self._update_counting_display()
 
     # BACKWARD COMPATIBILITY PROPERTIES
     @property

@@ -1,6 +1,6 @@
 """
-Card composition and deck penetration panel.
-Extracted from panels.py for better organization.
+ENLARGED Card composition and deck penetration panel.
+Made bigger and more readable with larger fonts and better spacing.
 """
 
 import tkinter as tk
@@ -8,11 +8,12 @@ from constants import RANKS, COLORS, normalize_rank_display, normalize_rank_inte
 
 
 class CompPanel(tk.Frame):
-    """Panel showing card composition and deck penetration - COMPACT VERSION."""
+    """ENLARGED Panel showing card composition and deck penetration."""
 
     def __init__(self, parent, on_decks_change, initial_decks=8):
-        super().__init__(parent, bg=COLORS['bg_white'], bd=2, relief=tk.GROOVE,
-                         width=600, height=100)
+        # ENLARGED: Increased width and height for better readability
+        super().__init__(parent, bg=COLORS['bg_white'], bd=3, relief=tk.GROOVE,
+                         width=750, height=130)  # Increased from 600x100
         self.pack_propagate(False)
         self.decks = initial_decks
         self.on_decks_change = on_decks_change
@@ -22,103 +23,104 @@ class CompPanel(tk.Frame):
         self.update_display()
 
     def _build_panel(self):
-        """Build the COMPACT composition panel UI."""
-        # Left side: Shoe information
+        """Build the ENLARGED composition panel UI."""
+        # Left side: Shoe information with LARGER fonts
         shoe = tk.Frame(self, bg=COLORS['bg_white'])
-        shoe.grid(row=0, column=0, rowspan=2, sticky='nsw', padx=2, pady=1)
+        shoe.grid(row=0, column=0, rowspan=2, sticky='nsw', padx=8, pady=6)  # More padding
 
-        # Deck selector
+        # ENLARGED: Deck selector with bigger font
         deck_frame = tk.Frame(shoe, bg=COLORS['bg_white'])
-        deck_frame.pack()
-        tk.Label(deck_frame, text='Decks', font=('Segoe UI', 8, 'bold'),
+        deck_frame.pack(pady=2)
+        tk.Label(deck_frame, text='Decks', font=('Segoe UI', 10, 'bold'),  # Larger font
                  bg=COLORS['bg_white']).pack(side=tk.LEFT)
         self.deck_var = tk.IntVar(value=self.decks)
         dspin = tk.Spinbox(
-            deck_frame, from_=1, to=8, width=2,
+            deck_frame, from_=1, to=8, width=3,  # Wider spinbox
             textvariable=self.deck_var,
-            font=('Segoe UI', 10),
+            font=('Segoe UI', 12, 'bold'),  # Larger font
             command=self.set_decks,
             justify='center'
         )
-        dspin.pack(side=tk.LEFT, padx=2)
+        dspin.pack(side=tk.LEFT, padx=4)
 
-        # Cards remaining
+        # ENLARGED: Cards remaining with bigger font
         cards_frame = tk.Frame(shoe, bg=COLORS['bg_white'])
-        cards_frame.pack()
-        tk.Label(cards_frame, text='Left:', font=('Segoe UI', 8, 'bold'),
+        cards_frame.pack(pady=2)
+        tk.Label(cards_frame, text='Left:', font=('Segoe UI', 10, 'bold'),  # Larger font
                  bg=COLORS['bg_white']).pack(side=tk.LEFT)
         self.cards_left_label = tk.Label(
             cards_frame, text="416",
-            font=('Segoe UI', 11, 'bold'),
+            font=('Segoe UI', 14, 'bold'),  # Much larger font
             fg=COLORS['fg_blue'],
             bg=COLORS['bg_white']
         )
-        self.cards_left_label.pack(side=tk.LEFT, padx=2)
+        self.cards_left_label.pack(side=tk.LEFT, padx=4)
 
-        # Penetration
+        # ENLARGED: Penetration with bigger components
         pen_frame = tk.Frame(shoe, bg=COLORS['bg_white'])
-        pen_frame.pack()
-        tk.Label(pen_frame, text='Pen:', font=('Segoe UI', 8, 'bold'),
+        pen_frame.pack(pady=2)
+        tk.Label(pen_frame, text='Pen:', font=('Segoe UI', 10, 'bold'),  # Larger font
                  bg=COLORS['bg_white']).pack(side=tk.LEFT)
         self.pen_bar = tk.Canvas(
-            pen_frame, width=40, height=10,
-            bg='#e0e0e0', bd=1,
+            pen_frame, width=60, height=15,  # Larger penetration bar
+            bg='#e0e0e0', bd=2,  # Thicker border
             highlightthickness=0
         )
-        self.pen_bar.pack(side=tk.LEFT, padx=2)
-        self.pen_label = tk.Label(pen_frame, text="0.0%", font=('Segoe UI', 8, 'bold'),
+        self.pen_bar.pack(side=tk.LEFT, padx=4)
+        self.pen_label = tk.Label(pen_frame, text="0.0%", font=('Segoe UI', 10, 'bold'),  # Larger font
                                   bg=COLORS['bg_white'])
-        self.pen_label.pack(side=tk.LEFT, padx=1)
+        self.pen_label.pack(side=tk.LEFT, padx=2)
 
-        # Right side: Card composition grid
+        # Right side: ENLARGED Card composition grid
         self._build_composition_grid()
 
     def _build_composition_grid(self):
-        """Build the card composition display grid - COMPACT VERSION."""
-        # Rank headers
+        """Build the ENLARGED card composition display grid."""
+        # ENLARGED: Rank headers with bigger fonts
         display_ranks = [normalize_rank_display(r) for r in
                          ['A', '2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K']]
         for ci, r in enumerate(display_ranks):
             tk.Label(
                 self, text=r,
-                font=('Segoe UI', 9, 'bold'),
+                font=('Segoe UI', 11, 'bold'),  # Larger font
                 bg=COLORS['bg_white'],
-                width=2
-            ).grid(row=0, column=ci + 1, padx=1, pady=1)
+                width=3,  # Wider cells
+                height=2  # Taller cells
+            ).grid(row=0, column=ci + 1, padx=2, pady=2)  # More padding
 
-        # Combined composition/remaining row
+        # ENLARGED: Combined composition/remaining row
         internal_ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K']
 
         self.comp_labels = {}
         self.rem_labels = {}
 
         for ci, r in enumerate(internal_ranks):
-            # Create frame for both dealt and remaining
+            # ENLARGED: Create bigger frame for both dealt and remaining
             cell_frame = tk.Frame(self, bg=COLORS['bg_white'])
-            cell_frame.grid(row=1, column=ci + 1, padx=1, pady=1)
+            cell_frame.grid(row=1, column=ci + 1, padx=2, pady=2)  # More padding
 
-            # Dealt count (top)
+            # ENLARGED: Dealt count (top) with bigger font and size
             dealt_lbl = tk.Label(
                 cell_frame, text='0',
-                font=('Segoe UI', 8, 'bold'),
-                width=2, height=1,
+                font=('Segoe UI', 10, 'bold'),  # Larger font
+                width=3, height=2,  # Bigger cells
                 fg=COLORS['fg_comp_cell'],
                 bg=COLORS['bg_comp_cell'],
-                bd=1, relief=tk.SUNKEN
+                bd=2, relief=tk.SUNKEN  # Thicker border
             )
-            dealt_lbl.pack()
+            dealt_lbl.pack(pady=1)
             self.comp_labels[r] = dealt_lbl
 
-            # Remaining count (bottom)
+            # ENLARGED: Remaining count (bottom) with bigger font and size
             remain_lbl = tk.Label(
                 cell_frame, text='32',
-                font=('Segoe UI', 8, 'bold'),
-                width=2, height=1,
+                font=('Segoe UI', 10, 'bold'),  # Larger font
+                width=3, height=2,  # Bigger cells
                 fg=COLORS['fg_white'],
                 bg=COLORS['bg_rem_cell'],
-                bd=1, relief=tk.SUNKEN
+                bd=2, relief=tk.SUNKEN  # Thicker border
             )
-            remain_lbl.pack()
+            remain_lbl.pack(pady=1)
             self.rem_labels[r] = remain_lbl
 
     def update_display(self):
@@ -137,12 +139,12 @@ class CompPanel(tk.Frame):
         cards_rem = self.cards_left()
         self.cards_left_label.config(text=str(cards_rem))
 
-        # Update penetration bar
+        # Update ENLARGED penetration bar
         pct, seen, total = self.penetration()
         self.pen_bar.delete("all")
         if total > 0:
-            width = int((pct / 100) * 40)
-            self.pen_bar.create_rectangle(0, 0, width, 10, fill=COLORS['fg_dealer'], outline="")
+            width = int((pct / 100) * 60)  # Adjusted for larger bar
+            self.pen_bar.create_rectangle(0, 0, width, 15, fill=COLORS['fg_dealer'], outline="")
         self.pen_label.config(text=f"{pct:.1f}%")
 
     def set_decks(self):

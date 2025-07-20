@@ -21,73 +21,77 @@ class SharedInputPanel(tk.Frame):
         self._build_panel()
 
     def _build_panel(self):
-        """Build the panel - SIMPLE version."""
-        # First row: Rank buttons
+        """Build the panel - COMPACT version with smaller buttons."""
+        # First row: Rank buttons - COMPACT
         rank_frame = tk.Frame(self, bg=COLORS['bg_input'])
-        rank_frame.pack(pady=2)
+        rank_frame.pack(pady=1)  # Reduced from pady=2
 
         self.rank_btns = []
 
-        # Rank buttons - SIMPLE
+        # Rank buttons - SMALLER and CLOSER
         for ri, r in enumerate(RANKS):
             display_rank = normalize_rank_display(r)  # Show 10 instead of T
             b = tk.Button(
                 rank_frame,
                 text=display_rank,
-                width=2 if r != '10' else 3,  # Wider for "10"
-                font=('Segoe UI', 11),
-                command=lambda rank=r: self.rank_clicked(rank)  # Use internal rank
+                width=1 if r != '10' else 2,
+                height=1,  # Explicit small height
+                font=('Segoe UI', 8),
+                command=lambda rank=r: self.rank_clicked(rank)
             )
-            b.grid(row=0, column=ri, padx=3)
+            b.grid(row=0, column=ri, padx=1)
             self.rank_btns.append(b)
 
-        # Undo button
+        # Undo button - SMALLER
         self.undo_btn = tk.Button(
             rank_frame,
             text='U',
-            width=3,
-            font=('Segoe UI', 11, 'bold'),
+            width=1,
+            height=1,  # Explicit small height
+            font=('Segoe UI', 8, 'bold'),
             command=self.undo
         )
-        self.undo_btn.grid(row=0, column=len(RANKS), padx=5)
+        self.undo_btn.grid(row=0, column=len(RANKS), padx=2)
 
-        # Second row: Action buttons
+        # Second row: Action buttons - COMPACT
         action_frame = tk.Frame(self, bg=COLORS['bg_input'])
-        action_frame.pack(pady=(8, 2))
+        action_frame.pack(pady=(3, 1))
 
-        # Stand/Skip button
+        # Stand/Skip button - SMALLER
         self.stand_btn = tk.Button(
             action_frame,
             text='STAND/SKIP',
-            width=12,
-            font=('Segoe UI', 11, 'bold'),
+            width=10,
+            height=1,  # Explicit small height
+            font=('Segoe UI', 9, 'bold'),
             bg='#ff6666',
             fg='white',
             command=self.handle_stand
         )
-        self.stand_btn.pack(side=tk.LEFT, padx=5)
+        self.stand_btn.pack(side=tk.LEFT, padx=3)
 
-        # Split button
+        # Split button - SMALLER
         self.split_btn = tk.Button(
             action_frame,
             text='SPLIT',
-            width=8,
-            font=('Segoe UI', 11, 'bold'),
+            width=6,  # Reduced width (was 8)
+            height=1,  # Explicit small height
+            font=('Segoe UI', 9, 'bold'),
             bg='#66ff66',
             fg='black',
             command=self.handle_split
         )
-        self.split_btn.pack(side=tk.LEFT, padx=5)
+        self.split_btn.pack(side=tk.LEFT, padx=3)
 
-        # Info label
+        # Info label - SMALLER
         info_label = tk.Label(
             action_frame,
             text="(For other players)",
-            font=('Segoe UI', 8),
+            font=('Segoe UI', 7),
             bg=COLORS['bg_input'],
             fg='#cccccc'
         )
-        info_label.pack(side=tk.LEFT, padx=10)
+        info_label.pack(side=tk.LEFT, padx=5)
 
     def rank_clicked(self, rank):
         """SIMPLE: Handle rank button click."""

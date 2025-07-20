@@ -61,11 +61,11 @@ class PlayerPanel(BaseCardPanel):
         self.card_widgets.append([])
 
     def _build_input_row(self):
-        """Build rank input buttons and score display."""
+        """Build rank input buttons and score display - COMPACT version."""
         bottom_frame = tk.Frame(self, bg=COLORS['fg_player'])
-        bottom_frame.pack(fill='x', pady=3)
+        bottom_frame.pack(fill='x', pady=2)  # Reduced padding
 
-        # Rank buttons
+        # Rank buttons - COMPACT
         btn_row = tk.Frame(bottom_frame, bg=COLORS['fg_player'])
         btn_row.pack(side=tk.LEFT, fill='x', expand=True)
 
@@ -74,57 +74,65 @@ class PlayerPanel(BaseCardPanel):
             display_rank = normalize_rank_display(r)
             b = tk.Button(
                 btn_row, text=display_rank,
-                width=1 if r != '10' else 2, font=('Segoe UI', 8),
+                width=1 if r != '10' else 2,  # Keep same width logic
+                height=1,  # Explicit small height
+                font=('Segoe UI', 7),  # Smaller font (was 8)
                 command=lambda rank=r: self.rank_clicked(rank)
             )
-            b.grid(row=0, column=ri, padx=0, sticky='ew')
+            b.grid(row=0, column=ri, padx=0, pady=0, sticky='ew')  # Remove any padding
             self.rank_btns.append(b)
 
-        # GLOBAL UNDO button - calls main app's shared undo handler
+        # GLOBAL UNDO button - SMALLER
         self.undo_btn = tk.Button(
-            btn_row, text='U', width=1,
-            font=('Segoe UI', 8, 'bold'),
+            btn_row, text='U',
+            width=1,  # Keep same width
+            height=1,  # Explicit small height
+            font=('Segoe UI', 7, 'bold'),  # Smaller font (was 8)
             command=self._global_undo
         )
-        self.undo_btn.grid(row=0, column=len(RANKS), padx=1, sticky='ew')
+        self.undo_btn.grid(row=0, column=len(RANKS), padx=0, pady=0, sticky='ew')  # Remove padding
 
         # Configure grid weights
         for i in range(len(RANKS) + 1):
             btn_row.grid_columnconfigure(i, weight=1)
 
-        # Score display
+        # Score display - SLIGHTLY SMALLER
         self.score_label = tk.Label(
             bottom_frame, text="",
-            font=('Segoe UI', 10, 'bold'),
+            font=('Segoe UI', 9, 'bold'),  # Smaller font (was 10)
             bg=COLORS['fg_player'], fg='#ffff00',
             width=8, anchor='center'
         )
-        self.score_label.pack(side=tk.RIGHT, padx=3)
+        self.score_label.pack(side=tk.RIGHT, padx=2)
 
     def _build_action_buttons(self):
-        """Build SIMPLIFIED player action buttons - only Stand/Skip and Split."""
+        """Build COMPACT player action buttons - smaller Stand/Skip and Split."""
         self.action_frame = tk.Frame(self, bg=COLORS['fg_player'])
-        self.action_frame.pack(pady=2)
+        self.action_frame.pack(pady=1)  # Reduced padding (was pady=2)
 
-        # Unified Stand/Skip button - matches shared input panel exactly
+        # Unified Stand/Skip button - SMALLER
         self.stand_skip_btn = tk.Button(
-            self.action_frame, text='STAND/SKIP', width=12,
-            font=('Segoe UI', 11, 'bold'),
+            self.action_frame, text='STAND/SKIP',
+            width=10,  # Reduced width (was 12)
+            height=1,  # Explicit small height
+            font=('Segoe UI', 9, 'bold'),  # Smaller font (was 11)
             bg='#ff6666',  # Same red color as shared input
             fg='white',
             command=self._handle_stand_skip
         )
-        self.stand_skip_btn.pack(side=tk.LEFT, padx=5)
+        self.stand_skip_btn.pack(side=tk.LEFT, padx=3)  # Reduced spacing (was padx=5)
 
-        # Split button - matches shared input panel styling
+        # Split button - SMALLER
         self.split_btn = tk.Button(
-            self.action_frame, text='SPLIT', width=8,
-            font=('Segoe UI', 11, 'bold'),
+            self.action_frame, text='SPLIT',
+            width=6,  # Reduced width (was 8)
+            height=1,  # Explicit small height
+            font=('Segoe UI', 9, 'bold'),  # Smaller font (was 11)
             bg='#66ff66',  # Same green color as shared input
             fg='black',
             command=lambda: self._action('split')
         )
-        self.split_btn.pack(side=tk.LEFT, padx=5)
+        self.split_btn.pack(side=tk.LEFT, padx=3)  # Reduced spacing (was padx=5)
 
         # Update button states
         self._update_action_buttons()

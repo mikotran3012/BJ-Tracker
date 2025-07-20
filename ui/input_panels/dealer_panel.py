@@ -64,11 +64,11 @@ class DealerPanel(BaseCardPanel):
         self.card_widgets.append([])
 
     def _build_input_row(self):
-        """Build rank input buttons and score display."""
+        """Build rank input buttons and score display - COMPACT version."""
         bottom_frame = tk.Frame(self, bg=COLORS['fg_dealer'])
-        bottom_frame.pack(fill='x', pady=3)
+        bottom_frame.pack(fill='x', pady=2)  # Reduced padding
 
-        # Rank buttons
+        # Rank buttons - COMPACT
         btn_row = tk.Frame(bottom_frame, bg=COLORS['fg_dealer'])
         btn_row.pack(side=tk.LEFT, fill='x', expand=True)
 
@@ -77,53 +77,62 @@ class DealerPanel(BaseCardPanel):
             display_rank = normalize_rank_display(r)
             b = tk.Button(
                 btn_row, text=display_rank,
-                width=1 if r != '10' else 2, font=('Segoe UI', 8),
+                width=1 if r != '10' else 2,  # Keep same width logic
+                height=1,  # Explicit small height
+                font=('Segoe UI', 7),  # Smaller font (was 8)
                 command=lambda rank=r: self.rank_clicked(rank)
             )
-            b.grid(row=0, column=ri, padx=0, sticky='ew')
+            b.grid(row=0, column=ri, padx=0, pady=0, sticky='ew')  # Remove any padding
             self.rank_btns.append(b)
 
+        # Undo button - SMALLER
         self.undo_btn = tk.Button(
-            btn_row, text='U', width=1,
-            font=('Segoe UI', 8, 'bold'),
+            btn_row, text='U',
+            width=1,  # Keep same width
+            height=1,  # Explicit small height
+            font=('Segoe UI', 7, 'bold'),  # Smaller font (was 8)
             command=self.on_global_undo
-
         )
-
-        self.undo_btn.grid(row=0, column=len(RANKS), padx=1, sticky='ew')
+        self.undo_btn.grid(row=0, column=len(RANKS), padx=0, pady=0, sticky='ew')  # Remove padding
 
         # Configure grid weights
         for i in range(len(RANKS) + 1):
             btn_row.grid_columnconfigure(i, weight=1)
 
-        # Score display
+        # Score display - SLIGHTLY SMALLER
         self.score_label = tk.Label(
             bottom_frame, text="",
-            font=('Segoe UI', 10, 'bold'),
+            font=('Segoe UI', 9, 'bold'),  # Smaller font (was 10)
             bg=COLORS['fg_dealer'], fg='#ffff00',
             width=10, anchor='center'
         )
-        self.score_label.pack(side=tk.RIGHT, padx=3)
+        self.score_label.pack(side=tk.RIGHT, padx=2)
 
     def _build_dealer_buttons(self):
-        """Build dealer-specific buttons."""
+        """Build dealer-specific buttons - COMPACT version."""
         dealer_btn_row = tk.Frame(self, bg=COLORS['fg_dealer'])
-        dealer_btn_row.pack(pady=2)
+        dealer_btn_row.pack(pady=1)  # Reduced padding (was pady=2)
 
+        # Mystery button - SMALLER
         self.mystery_btn = tk.Button(
             dealer_btn_row, text="Mystery (?)",
-            font=('Segoe UI', 8),
+            width=8,  # Explicit smaller width
+            height=1,  # Explicit small height
+            font=('Segoe UI', 7),  # Smaller font (was 8)
             command=self.input_mystery_card
         )
-        self.mystery_btn.pack(side=tk.LEFT, padx=2)
+        self.mystery_btn.pack(side=tk.LEFT, padx=1)  # Reduced spacing (was padx=2)
 
+        # Reveal button - SMALLER
         self.reveal_btn = tk.Button(
             dealer_btn_row, text="Reveal Hole",
-            font=('Segoe UI', 8),
+            width=8,  # Explicit smaller width
+            height=1,  # Explicit small height
+            font=('Segoe UI', 7),  # Smaller font (was 8)
             command=self.reveal_hole_card
         )
         if self.allow_reveal:
-            self.reveal_btn.pack(side=tk.LEFT, padx=2)
+            self.reveal_btn.pack(side=tk.LEFT, padx=1)
 
     def set_play_mode(self):
         """Enable all controls when dealer is hitting during play phase."""

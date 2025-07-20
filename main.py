@@ -289,7 +289,7 @@ class BlackjackTrackerApp(tk.Tk):
         self.bind_all('<Key>', self.handle_key)
 
     def handle_key(self, event):
-        """Handle keyboard input."""
+        """Handle keyboard input with Undo hotkey support."""
         try:
             print(f"\n=== KEY EVENT ===")
             print(f"Key: '{event.char}' (char)")
@@ -297,7 +297,13 @@ class BlackjackTrackerApp(tk.Tk):
             print(f"Play phase: {self.game_state.is_play_phase()}")
             print(f"Auto focus: {self.game_state._auto_focus}")
 
-            # Use the keyboard handler
+            # HOTKEY: Handle 'U' key for global undo
+            if event.char.upper() == 'U':
+                print("UNDO HOTKEY: 'U' key pressed - triggering global undo")
+                self.handle_shared_undo()
+                return "break"  # Prevent further processing
+
+            # Use the existing keyboard handler for other keys
             result = self.action_handler.keyboard.handle_key(event)
             print(f"Keyboard handler result: {result}")
             print("=== END KEY EVENT ===\n")

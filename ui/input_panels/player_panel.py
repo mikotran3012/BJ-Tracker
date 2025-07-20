@@ -61,13 +61,13 @@ class PlayerPanel(BaseCardPanel):
         self.card_widgets.append([])
 
     def _build_input_row(self):
-        """Build rank input buttons and score display - COMPACT version."""
+        """Build rank input buttons and score display - LEFT-ALIGNED with minimal spacing."""
         bottom_frame = tk.Frame(self, bg=COLORS['fg_player'])
         bottom_frame.pack(fill='x', pady=2)  # Reduced padding
 
-        # Rank buttons - COMPACT
+        # Rank buttons - LEFT-ALIGNED with MINIMAL SPACING
         btn_row = tk.Frame(bottom_frame, bg=COLORS['fg_player'])
-        btn_row.pack(side=tk.LEFT, fill='x', expand=True)
+        btn_row.pack(side=tk.LEFT, anchor='w', padx=0)  # LEFT-ALIGNED, no left padding
 
         self.rank_btns = []
         for ri, r in enumerate(RANKS):
@@ -76,44 +76,113 @@ class PlayerPanel(BaseCardPanel):
                 btn_row, text=display_rank,
                 width=1 if r != '10' else 2,  # Keep same width logic
                 height=1,  # Explicit small height
-                font=('Segoe UI', 7),  # Smaller font (was 8)
+                font=('Segoe UI', 7),  # Smaller font
+                bd=1,  # Minimal border
                 command=lambda rank=r: self.rank_clicked(rank)
             )
-            b.grid(row=0, column=ri, padx=0, pady=0, sticky='ew')  # Remove any padding
+            # MINIMAL HORIZONTAL SPACING - 2px between buttons
+            b.grid(row=0, column=ri, padx=(0 if ri == 0 else 2, 0), pady=0, ipadx=0, ipady=0, sticky='w')
             self.rank_btns.append(b)
 
-        # GLOBAL UNDO button - SMALLER
+        # GLOBAL UNDO button - MINIMAL SPACING
         self.undo_btn = tk.Button(
             btn_row, text='U',
             width=1,  # Keep same width
             height=1,  # Explicit small height
-            font=('Segoe UI', 7, 'bold'),  # Smaller font (was 8)
+            font=('Segoe UI', 7, 'bold'),  # Smaller font
+            bd=1,  # Minimal border
             command=self._global_undo
         )
-        self.undo_btn.grid(row=0, column=len(RANKS), padx=0, pady=0, sticky='ew')  # Remove padding
+        self.undo_btn.grid(row=0, column=len(RANKS), padx=(2, 0), pady=0, ipadx=0, ipady=0, sticky='w')
 
-        # Configure grid weights
-        for i in range(len(RANKS) + 1):
-            btn_row.grid_columnconfigure(i, weight=1)
-
-        # Score display - SLIGHTLY SMALLER
+        # Score display - RIGHT-ALIGNED with more space
         self.score_label = tk.Label(
             bottom_frame, text="",
-            font=('Segoe UI', 9, 'bold'),  # Smaller font (was 10)
+            font=('Segoe UI', 9, 'bold'),  # Smaller font
             bg=COLORS['fg_player'], fg='#ffff00',
-            width=8, anchor='center'
+            width=12, anchor='center'  # WIDER for more space
         )
-        self.score_label.pack(side=tk.RIGHT, padx=2)
+        self.score_label.pack(side=tk.RIGHT, padx=5)
+
+    def create_card_widget(self, rank, suit, parent):
+        """Create a graphic playing card widget that looks like a real card."""
+        # Card dimensions
+        card_width = 45
+        card_height = 65
+
+        # Create main card frame with white background and black border
+        card_frame = tk.Frame(parent,
+                              bg='white',
+                              relief=tk.SOLID,
+                              bd=1,
+                              width=card_width,
+                              height=card_height)
+        card_frame.pack_propagate(False)  # Maintain fixed size
+        card_frame.pack(side=tk.LEFT, padx=1, pady=1)  # Minimal spacing between cards
+
+        # Determine suit color and symbol
+        suit_colors = {'♠': 'black', '♣': 'black', '♥': 'red', '♦': 'red'}
+        suit_symbols = {'S': '♠', 'C': '♣', 'H': '♥', 'D': '♦'}
+
+        suit_symbol = suit_symbols.get(suit, suit)
+        suit_color = suit_colors.get(suit_symbol, 'black')
+
+        # Display rank (handle 10 specially)
+        display_rank = '10' if rank in ['T', '10'] else rank
+
+        # Top-left corner: rank and suit
+        top_left = tk.Label(card_frame,
+                            text=f"{display_rank}\n{suit_symbol}",
+                            font=('Arial', 6, 'bold'),
+                            fg=suit_color,
+                            bg='white',
+                            justify=tk.LEFT)
+        top_left.place(x=2, y=2)
+
+        # Center: Large suit symbol(s)
+        if rank in ['J', 'Q', 'K']:
+            # Face cards: show rank in center
+            center_text = rank
+            center_font = ('Arial', 14, 'bold')
+        elif rank == 'A':
+            # Ace: large suit symbol
+            center_text = suit_symbol
+            center_font = ('Arial', 20, 'bold')
+        elif rank in ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'T']:
+            # Number cards: smaller suit symbol
+            center_text = suit_symbol
+            center_font = ('Arial', 12, 'bold')
+        else:
+            center_text = suit_symbol
+            center_font = ('Arial', 12, 'bold')
+
+        center_label = tk.Label(card_frame,
+                                text=center_text,
+                                font=center_font,
+                                fg=suit_color,
+                                bg='white')
+        center_label.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+
+        # Bottom-right corner: rank and suit (upside down)
+        bottom_right = tk.Label(card_frame,
+                                text=f"{suit_symbol}\n{display_rank}",
+                                font=('Arial', 6, 'bold'),
+                                fg=suit_color,
+                                bg='white',
+                                justify=tk.RIGHT)
+        bottom_right.place(relx=1, rely=1, anchor=tk.SE, x=-2, y=-2)
+
+        return card_frame
 
     def _build_action_buttons(self):
-        """Build COMPACT player action buttons - smaller Stand/Skip and Split."""
+        """Build COMPACT player action buttons - renamed Stand button."""
         self.action_frame = tk.Frame(self, bg=COLORS['fg_player'])
         self.action_frame.pack(pady=1)  # Reduced padding (was pady=2)
 
-        # Unified Stand/Skip button - SMALLER
+        # Stand button - RENAMED from "STAND/SKIP" and SMALLER
         self.stand_skip_btn = tk.Button(
-            self.action_frame, text='STAND/SKIP',
-            width=10,  # Reduced width (was 12)
+            self.action_frame, text='STAND',  # CHANGED from 'STAND/SKIP'
+            width=7,  # REDUCED width from 10 (shorter text)
             height=1,  # Explicit small height
             font=('Segoe UI', 9, 'bold'),  # Smaller font (was 11)
             bg='#ff6666',  # Same red color as shared input
@@ -206,7 +275,7 @@ class PlayerPanel(BaseCardPanel):
         self.update_display()
 
     def update_display(self):
-        """Update player display with cards."""
+        """Update player display with graphic cards - COMPACT STACKING."""
         # Clear existing card widgets
         for hand_widgets in self.card_widgets:
             for widget in hand_widgets:
@@ -241,11 +310,15 @@ class PlayerPanel(BaseCardPanel):
                     bg=COLORS['fg_player'],
                     fg='#ffff00' if i == self.current_hand else '#cccccc'
                 )
-                hand_label.pack()
+                hand_label.pack(anchor='w', pady=(0, 2))  # Left-aligned with small bottom padding
 
-            # Add cards using base class method
+            # Create a container for cards to stack them horizontally
+            cards_container = tk.Frame(display_frame, bg=COLORS['fg_player'])
+            cards_container.pack(anchor='w', fill='x')  # Left-aligned, fill width
+
+            # Add cards using graphic card method
             for rank, suit in hand:
-                card_widget = self.create_card_widget(rank, suit, display_frame)
+                card_widget = self.create_card_widget(rank, suit, cards_container)
                 self.card_widgets[i].append(card_widget)
 
         # Update score and status

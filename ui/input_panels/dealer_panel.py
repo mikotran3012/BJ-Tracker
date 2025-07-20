@@ -13,15 +13,25 @@ class DealerPanel(BaseCardPanel):
     """Dealer panel with hole card support and phase-based button control."""
 
     def __init__(self, parent, on_card, on_undo, hole_card_reveal=False, on_global_undo=None, undo_manager=None):
+        print(f"DEALER_PANEL: Creating new DealerPanel instance in parent: {parent}")
+        print(f"DEALER_PANEL: Parent has {len(parent.winfo_children())} existing children")
+
         super().__init__(parent, "DEALER", is_player=False, is_dealer=True,
                          on_card=on_card, on_undo=on_undo)
         self.hole_card = None
         self.hole_card_enabled = hole_card_reveal
-        self.allow_reveal = hole_card_reveal  # <--- Add this line back
+        self.allow_reveal = hole_card_reveal
         self.mystery_hole = False
         self.on_global_undo = on_global_undo
         self.undo_manager = undo_manager
+
+        # Add missing attributes
+        self.current_deal_step = 0
+        self.upcard_rank = None
+        self.in_hole_phase = False
+
         self._build_dealer_ui()
+        print("DEALER_PANEL: DealerPanel construction complete")
 
     def _build_dealer_ui(self):
         """Build dealer-specific UI."""
@@ -51,7 +61,7 @@ class DealerPanel(BaseCardPanel):
         self._add_hand_display()
 
         # Input buttons + Score
-        self._build_input_row()
+        self._build_input_row_dealer()
 
         # Dealer-specific buttons
         self._build_dealer_buttons()
@@ -63,14 +73,14 @@ class DealerPanel(BaseCardPanel):
         self.displays.append(hand_frame)
         self.card_widgets.append([])
 
-    def _build_input_row(self):
-        """Build rank input buttons and score display - COMPACT version."""
+    def _build_input_row_dealer(self):
+        """Build rank input buttons and score display - LEFT-ALIGNED with minimal spacing."""
         bottom_frame = tk.Frame(self, bg=COLORS['fg_dealer'])
         bottom_frame.pack(fill='x', pady=2)  # Reduced padding
 
-        # Rank buttons - COMPACT
+        # Rank buttons - LEFT-ALIGNED with MINIMAL SPACING
         btn_row = tk.Frame(bottom_frame, bg=COLORS['fg_dealer'])
-        btn_row.pack(side=tk.LEFT, fill='x', expand=True)
+        btn_row.pack(side=tk.LEFT, anchor='w', padx=0)  # LEFT-ALIGNED, no left padding
 
         self.rank_btns = []
         for ri, r in enumerate(RANKS):
@@ -79,34 +89,31 @@ class DealerPanel(BaseCardPanel):
                 btn_row, text=display_rank,
                 width=1 if r != '10' else 2,  # Keep same width logic
                 height=1,  # Explicit small height
-                font=('Segoe UI', 7),  # Smaller font (was 8)
+                font=('Segoe UI', 7),  # Smaller font
                 command=lambda rank=r: self.rank_clicked(rank)
             )
-            b.grid(row=0, column=ri, padx=0, pady=0, sticky='ew')  # Remove any padding
+            # MINIMAL HORIZONTAL SPACING - 2px between buttons
+            b.grid(row=0, column=ri, padx=(0 if ri == 0 else 2, 0), pady=0, sticky='w')
             self.rank_btns.append(b)
 
-        # Undo button - SMALLER
+        # Undo button - MINIMAL SPACING
         self.undo_btn = tk.Button(
             btn_row, text='U',
             width=1,  # Keep same width
             height=1,  # Explicit small height
-            font=('Segoe UI', 7, 'bold'),  # Smaller font (was 8)
+            font=('Segoe UI', 7, 'bold'),  # Smaller font
             command=self.on_global_undo
         )
-        self.undo_btn.grid(row=0, column=len(RANKS), padx=0, pady=0, sticky='ew')  # Remove padding
+        self.undo_btn.grid(row=0, column=len(RANKS), padx=(2, 0), pady=0, sticky='w')
 
-        # Configure grid weights
-        for i in range(len(RANKS) + 1):
-            btn_row.grid_columnconfigure(i, weight=1)
-
-        # Score display - SLIGHTLY SMALLER
+        # Score display - RIGHT-ALIGNED with more space
         self.score_label = tk.Label(
             bottom_frame, text="",
-            font=('Segoe UI', 9, 'bold'),  # Smaller font (was 10)
+            font=('Segoe UI', 9, 'bold'),  # Smaller font
             bg=COLORS['fg_dealer'], fg='#ffff00',
-            width=10, anchor='center'
+            width=12, anchor='center'  # WIDER for more space
         )
-        self.score_label.pack(side=tk.RIGHT, padx=2)
+        self.score_label.pack(side=tk.RIGHT, padx=5)
 
     def _build_dealer_buttons(self):
         """Build dealer-specific buttons - COMPACT version."""

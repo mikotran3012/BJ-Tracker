@@ -30,28 +30,30 @@ class BlackjackTrackerApp(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Blackjack Card Tracker Pro")
-        self.geometry("1200x700")  # Keep original size
+        self.geometry("1200x700")
         self.configure(bg=COLORS['bg_main'])
 
-        # STEP 1: Initialize core managers FIRST
+        # Initialize core managers FIRST
         self.game_state = GameState(DEFAULT_DECKS)
         self.action_handler = ActionHandler(self)
         self.focus_manager = FocusManager(self.game_state)
         self.count_manager = CountManager(DEFAULT_DECKS)
 
-        # STEP 2: Initialize UI-related attributes to prevent AttributeError
+        # Initialize UI-related attributes
         self.dealer_border = None
         self.player_border = None
         self.panel_min_height = 180
+        self._ui_setup_complete = False  # ADD THIS LINE
 
-        # STEP 3: Build the complete UI
+        # Build the complete UI - SHOULD ONLY BE CALLED ONCE
+        print("MAIN_INIT: Calling _setup_ui()...")
         self._setup_ui()
+        print("MAIN_INIT: _setup_ui() complete")
 
-        # STEP 4: Setup keyboard bindings
+        # Setup keyboard bindings
         self._setup_bindings()
 
-        # STEP 5: Only AFTER everything is built, prompt for seat selection
-        # Use longer delay to ensure UI is fully rendered
+        # Prompt for seat selection
         self.after(500, self.prompt_seat_selection)
 
     def _calculate_aces_left(self):
@@ -67,61 +69,51 @@ class BlackjackTrackerApp(tk.Tk):
         self.count_panel.update_panel(cards_left, aces_left, self.game_state.decks)
 
     def _setup_ui(self):
-        """Setup UI with fully independent left/right columns and vertical divider - headerless compact layout."""
+        """Setup UI with single panel creation and debug tracking."""
+
+        print("SETUP_UI: Starting UI setup...")
+
+        # Check if UI already exists (prevent double creation)
+        if hasattr(self, '_ui_setup_complete') and self._ui_setup_complete:
+            print("SETUP_UI: UI already setup, skipping...")
+            return
 
         # TOP-LEVEL CONTAINER: Grid-based layout for left/divider/right
         main_top_row = tk.Frame(self, bg=COLORS['bg_main'])
         main_top_row.pack(side='top', fill='both', expand=True, padx=5, pady=5)
 
-        # Configure grid columns: left (expandable), divider (fixed), right (fixed)
-        main_top_row.grid_columnconfigure(0, weight=3)  # Left side - larger weight for more space
-        main_top_row.grid_columnconfigure(1, weight=0)  # Divider - fixed width
-        main_top_row.grid_columnconfigure(2, weight=1)  # Right side - smaller fixed width
-        main_top_row.grid_rowconfigure(0, weight=1)  # Allow vertical expansion
+        # Configure grid columns
+        main_top_row.grid_columnconfigure(0, weight=4)
+        main_top_row.grid_columnconfigure(1, weight=0)
+        main_top_row.grid_columnconfigure(2, weight=0)
+        main_top_row.grid_rowconfigure(0, weight=1)
 
-        # === LEFT COLUMN: All game panels in vertical stack ===
+        # === LEFT COLUMN ===
         left_frame = tk.Frame(main_top_row, bg=COLORS['bg_main'], relief=tk.GROOVE, bd=1)
         left_frame.grid(row=0, column=0, sticky='nsew', padx=(0, 3))
 
-        # 1. CARD COMPOSITION TRACKER (top of left column) - NO HEADER
-        comp_container = tk.Frame(left_frame, bg=COLORS['bg_main'])
-        comp_container.pack(fill='x', pady=5, padx=5)
+        # 1. TOP ROW: COMPOSITION + SHARED INPUT
+        top_row_container = tk.Frame(left_frame, bg=COLORS['bg_main'])
+        top_row_container.pack(fill='x', pady=5, padx=5)
 
+        top_row_container.grid_columnconfigure(0, weight=0)
+        top_row_container.grid_columnconfigure(1, weight=0)
+        top_row_container.grid_columnconfigure(2, weight=1)
+        top_row_container.grid_rowconfigure(0, weight=1)
+
+        # Left side: Card composition tracker
+        comp_container = tk.Frame(top_row_container, bg=COLORS['bg_main'])
+        comp_container.grid(row=0, column=0, sticky='w', padx=(0, 0))
+
+        print("SETUP_UI: Creating CompPanel...")
         self.game_state.comp_panel = CompPanel(comp_container, self.on_decks_change, self.game_state.decks)
         self.game_state.comp_panel.pack(anchor='w')
 
-        # 2. SEATS SECTION - NO HEADER
-        seats_container = tk.Frame(left_frame, bg=COLORS['bg_main'])
-        seats_container.pack(fill='x', pady=(5, 2), padx=(5, 5), anchor='w')  # Reduced bottom padding
+        # Right side: Shared input panel
+        input_container = tk.Frame(top_row_container, bg=COLORS['bg_main'])
+        input_container.grid(row=0, column=1, sticky='', padx=(2, 0))
 
-        # REMOVED: SEATS header
-        # tk.Label(seats_container, text="SEATS", font=('Segoe UI', 10, 'bold'),
-        #          bg=COLORS['bg_main'], fg=COLORS['fg_white']).pack(anchor='w', pady=(0, 3))
-
-        seats_row = tk.Frame(seats_container, bg=COLORS['bg_main'], relief=tk.SUNKEN, bd=1)
-        seats_row.pack(anchor='w', pady=0)  # No vertical padding
-
-        # Add padding inside seats row - minimal horizontal padding
-        seats_inner = tk.Frame(seats_row, bg=COLORS['bg_main'])
-        seats_inner.pack(pady=2, padx=2)  # Reduced padding
-
-        for si, seat in enumerate(SEATS):
-            self.game_state.seat_hands[seat] = SeatHandPanel(
-                seats_inner, seat, False, False,
-                on_action=self.handle_seat_action
-            )
-            self.game_state.seat_hands[seat].pack(side=tk.LEFT, padx=1)
-
-        # 3. SHARED CARD INPUT PANEL - COMPACT BUT VISIBLE
-        input_container = tk.Frame(left_frame, bg=COLORS['bg_main'])
-        input_container.pack(fill='x', pady=(3, 3), padx=0)  # Slightly more padding for visibility
-
-        # REMOVED: input_label header for compact layout
-        # input_label = tk.Label(input_container, text="SHARED CARD INPUT PANEL",
-        #                        font=('Segoe UI', 10, 'bold'), bg=COLORS['bg_main'], fg=COLORS['fg_white'])
-        # input_label.pack(anchor='w', pady=(0, 3))
-
-        # Create SharedInputPanel with proper visibility - NO height constraint
+        print("SETUP_UI: Creating SharedInputPanel...")
         self.game_state.shared_input_panel = SharedInputPanel(
             input_container,
             self.handle_shared_card,
@@ -131,30 +123,53 @@ class BlackjackTrackerApp(tk.Tk):
             on_stand=self.handle_shared_stand,
             on_split=self.handle_shared_split
         )
-        # Pack with left alignment and minimal but sufficient padding
-        self.game_state.shared_input_panel.pack(anchor='w', padx=5, pady=2)
+        self.game_state.shared_input_panel.pack(expand=True, fill='both', padx=0, pady=0)
 
-        # 4. GAME PANELS SECTION - NO HEADERS, MAXIMUM SPACE
+        # 2. SEATS SECTION
+        seats_container = tk.Frame(left_frame, bg=COLORS['bg_main'])
+        seats_container.pack(fill='x', pady=(5, 2), padx=(5, 5), anchor='w')
+
+        seats_row = tk.Frame(seats_container, bg=COLORS['bg_main'], relief=tk.SUNKEN, bd=1)
+        seats_row.pack(anchor='w', pady=0)
+
+        seats_inner = tk.Frame(seats_row, bg=COLORS['bg_main'])
+        seats_inner.pack(pady=2, padx=2)
+
+        print("SETUP_UI: Creating seat panels...")
+        for si, seat in enumerate(SEATS):
+            self.game_state.seat_hands[seat] = SeatHandPanel(
+                seats_inner, seat, False, False,
+                on_action=self.handle_seat_action
+            )
+            self.game_state.seat_hands[seat].pack(side=tk.LEFT, padx=1)
+
+        # 3. GAME PANELS SECTION - CRITICAL: Only create panels ONCE
         game_panels_container = tk.Frame(left_frame, bg=COLORS['bg_main'])
-        game_panels_container.pack(fill='both', expand=True, pady=(3, 5), padx=5)  # Fill remaining space
+        game_panels_container.pack(fill='both', expand=True, pady=(5, 5), padx=5)
 
-        # Set larger minimum height for synchronized panels - MORE SPACE
-        PANEL_MIN_HEIGHT = 220  # Slightly reduced to accommodate input panel
+        game_panels_container.grid_columnconfigure(0, weight=17)
+        game_panels_container.grid_columnconfigure(1, weight=23)
+        game_panels_container.grid_rowconfigure(0, weight=1)
 
-        # Dealer panel - NO HEADER
+        PANEL_MIN_HEIGHT = 200
+
+        # === DEALER PANEL - CREATE ONLY ONCE ===
+        print("SETUP_UI: Creating dealer container...")
         dealer_container = tk.Frame(game_panels_container, bg=COLORS['bg_main'])
-        dealer_container.pack(side=tk.LEFT, fill='both', expand=True, padx=(0, 3))
+        dealer_container.grid(row=0, column=0, sticky='nsew', padx=(0, 2))
 
-        # REMOVED: DEALER PANEL header
-        # dealer_label = tk.Label(dealer_container, text="DEALER PANEL",
-        #                         font=('Segoe UI', 10, 'bold'), bg=COLORS['bg_main'], fg=COLORS['fg_white'])
-        # dealer_label.pack(pady=(0, 3))
-
-        # Fixed height border frame for dealer with larger minimum height
+        print("SETUP_UI: Creating dealer border...")
         self.dealer_border = tk.Frame(dealer_container, relief=tk.SUNKEN, bd=1, height=PANEL_MIN_HEIGHT)
-        self.dealer_border.pack(fill='both', expand=True)  # Fill available space
-        self.dealer_border.pack_propagate(False)  # Prevent automatic height changes
+        self.dealer_border.pack(fill='both', expand=True)
+        self.dealer_border.pack_propagate(False)
 
+        # CRITICAL: Check if dealer panel already exists
+        if hasattr(self.game_state, 'dealer_panel') and self.game_state.dealer_panel is not None:
+            print("SETUP_UI: WARNING - DealerPanel already exists! Destroying old one...")
+            self.game_state.dealer_panel.destroy()
+            self.game_state.dealer_panel = None
+
+        print("SETUP_UI: Creating DealerPanel...")
         self.game_state.dealer_panel = DealerPanel(
             self.dealer_border,
             self.on_dealer_card,
@@ -164,21 +179,25 @@ class BlackjackTrackerApp(tk.Tk):
             undo_manager=self.action_handler.undo_manager
         )
         self.game_state.dealer_panel.pack(fill='both', expand=True, padx=3, pady=3)
+        print("SETUP_UI: DealerPanel created and packed")
 
-        # Player panel - NO HEADER
+        # === PLAYER PANEL - CREATE ONLY ONCE ===
+        print("SETUP_UI: Creating player container...")
         player_container = tk.Frame(game_panels_container, bg=COLORS['bg_main'])
-        player_container.pack(side=tk.LEFT, fill='both', expand=True, padx=(3, 0))
+        player_container.grid(row=0, column=1, sticky='nsew', padx=(2, 0))
 
-        # REMOVED: PLAYER PANEL header
-        # player_label = tk.Label(player_container, text="PLAYER PANEL",
-        #                         font=('Segoe UI', 10, 'bold'), bg=COLORS['bg_main'], fg=COLORS['fg_white'])
-        # player_label.pack(pady=(0, 3))
-
-        # Fixed height border frame for player with larger minimum height
+        print("SETUP_UI: Creating player border...")
         self.player_border = tk.Frame(player_container, relief=tk.SUNKEN, bd=1, height=PANEL_MIN_HEIGHT)
-        self.player_border.pack(fill='both', expand=True)  # Fill available space
-        self.player_border.pack_propagate(False)  # Prevent automatic height changes
+        self.player_border.pack(fill='both', expand=True)
+        self.player_border.pack_propagate(False)
 
+        # CRITICAL: Check if player panel already exists
+        if hasattr(self.game_state, 'player_panel') and self.game_state.player_panel is not None:
+            print("SETUP_UI: WARNING - PlayerPanel already exists! Destroying old one...")
+            self.game_state.player_panel.destroy()
+            self.game_state.player_panel = None
+
+        print("SETUP_UI: Creating PlayerPanel...")
         self.game_state.player_panel = PlayerPanel(
             self.player_border,
             self.on_player_card,
@@ -188,45 +207,54 @@ class BlackjackTrackerApp(tk.Tk):
             undo_manager=self.action_handler.undo_manager
         )
         self.game_state.player_panel.pack(fill='both', expand=True, padx=3, pady=3)
+        print("SETUP_UI: PlayerPanel created and packed")
 
-        # Store minimum height for later use
         self.panel_min_height = PANEL_MIN_HEIGHT
 
         # === VERTICAL DIVIDER ===
         divider_frame = tk.Frame(
             main_top_row,
-            bg='#404040',  # Dark gray divider color
-            width=3,  # Thin vertical line
+            bg='#404040',
+            width=3,
             relief=tk.RAISED,
             bd=1
         )
         divider_frame.grid(row=0, column=1, sticky='ns', padx=1)
-        divider_frame.grid_propagate(False)  # Maintain fixed width
+        divider_frame.grid_propagate(False)
 
-        # === RIGHT COLUMN: Counting systems only - NO HEADER ===
-        right_frame = tk.Frame(main_top_row, bg=COLORS['bg_main'], relief=tk.GROOVE, bd=1)
-        right_frame.grid(row=0, column=2, sticky='nsew', padx=(3, 0))
+        # === RIGHT COLUMN: Counting systems ===
+        right_frame = tk.Frame(main_top_row, bg=COLORS['bg_main'], relief=tk.GROOVE, bd=1, width=180, height=400)
+        right_frame.grid(row=0, column=2, sticky='n', padx=(3, 0))
+        right_frame.grid_propagate(False)
 
-        # Container for the counting panel - COMPACT
         count_container = tk.Frame(right_frame, bg=COLORS['bg_main'])
-        count_container.pack(fill='both', expand=True, padx=3, pady=3)
+        count_container.pack(fill='both', expand=True, padx=2, pady=2)
 
+        print("SETUP_UI: Creating count panel...")
         self.count_panel = CountPanel(count_container, self.count_manager)
         self.count_panel.pack(fill='both', expand=True)
 
-        # === BOTTOM AREA: Future features (spans full width below grid) ===
-        future_features_frame = tk.Frame(self, bg=COLORS['bg_main'], relief=tk.GROOVE, bd=1)
+        # === BOTTOM AREA: Future features ===
+        future_height = int(700 * 0.20)
+        future_features_frame = tk.Frame(self, bg=COLORS['bg_main'], relief=tk.GROOVE, bd=1, height=future_height)
         future_features_frame.pack(side='bottom', fill='x', padx=5, pady=(5, 5))
+        future_features_frame.pack_propagate(False)
 
-        # Future features header and content
         future_header = tk.Label(future_features_frame, text="FUTURE FEATURES",
-                                 font=('Segoe UI', 14, 'bold'), bg=COLORS['bg_main'], fg=COLORS['fg_white'])
-        future_header.pack(pady=10)
+                                 font=('Segoe UI', 16, 'bold'), bg=COLORS['bg_main'], fg=COLORS['fg_white'])
+        future_header.pack(pady=8)
 
-        # Placeholder content area
-        future_content = tk.Frame(future_features_frame, bg=COLORS['bg_main'], height=50)
-        future_content.pack(fill='x', padx=10, pady=(0, 10))
-        future_content.pack_propagate(False)
+        future_content = tk.Frame(future_features_frame, bg=COLORS['bg_main'])
+        future_content.pack(fill='both', expand=True, padx=15, pady=(0, 8))
+
+        # Mark UI setup as complete to prevent double creation
+        self._ui_setup_complete = True
+
+        print("SETUP_UI: UI setup complete")
+        print("SETUP_UI: Final panel verification:")
+        print(f"  - SharedInputPanel: {self.game_state.shared_input_panel is not None}")
+        print(f"  - DealerPanel: {self.game_state.dealer_panel is not None}")
+        print(f"  - PlayerPanel: {self.game_state.player_panel is not None}")
 
     def _synchronize_panel_heights(self):
         """Ensure dealer and player panels maintain synchronized heights."""
@@ -282,13 +310,77 @@ class BlackjackTrackerApp(tk.Tk):
             traceback.print_exc()
 
     def prompt_seat_selection(self):
-        """Show seat selection."""
-        print("PROMPT_SEAT: Showing seat selection dialog")
-        dialog = SeatSelectDialog(self)
-        selected_seat = dialog.selected.get()
-        print(f"PROMPT_SEAT: Selected seat: {selected_seat}")
+        """Show seat selection dialog with error handling."""
+        print("\n" + "=" * 50)
+        print("PROMPT_SEAT: Starting seat selection process")
+
+        try:
+            # Create dialog
+            dialog = SeatSelectDialog(self)
+            print("PROMPT_SEAT: Dialog created successfully")
+
+            # Try to center it
+            try:
+                self.update_idletasks()
+                main_x = self.winfo_x()
+                main_y = self.winfo_y()
+                main_width = self.winfo_width()
+                main_height = self.winfo_height()
+
+                # Use safer approach for dialog sizing
+                dialog_width = 300  # Fixed width instead of trying winfo_reqwidth
+                dialog_height = 200  # Fixed height instead of trying winfo_reqheight
+
+                center_x = main_x + (main_width - dialog_width) // 2
+                center_y = main_y + (main_height - dialog_height) // 2
+
+                dialog.geometry(f"{dialog_width}x{dialog_height}+{center_x}+{center_y}")
+                print(f"PROMPT_SEAT: Dialog positioned at {center_x},{center_y}")
+
+            except Exception as e:
+                print(f"PROMPT_SEAT: Error positioning dialog: {e}")
+                # Continue anyway, dialog will appear at default position
+
+            # Get the selected seat
+            selected_seat = dialog.selected.get()
+            print(f"PROMPT_SEAT: User selected seat: '{selected_seat}'")
+
+        except Exception as e:
+            print(f"PROMPT_SEAT: Error with dialog: {e}")
+            # Fallback: just pick a default seat
+            selected_seat = 'P1'
+            print(f"PROMPT_SEAT: Using fallback seat: {selected_seat}")
+
+        # Debug: Check state before setting seat
+        print("BEFORE SEAT SELECTION:")
+        print(f"  - Current seat: {getattr(self.game_state, 'seat', 'None')}")
+        print(f"  - Active seats: {getattr(self.game_state, '_active_seats', 'None')}")
+
+        # Set the seat
+        print(f"PROMPT_SEAT: Setting seat to {selected_seat}")
         self.game_state.set_seat(selected_seat)
+
+        # Make sure selected seat is in active seats
+        if selected_seat not in self.game_state._active_seats:
+            # Clear existing active seats and set only the player's seat
+            self.game_state._active_seats = [selected_seat]
+            print(f"PROMPT_SEAT: Set active seats to: {self.game_state._active_seats}")
+
+        # Debug: Check state after setting seat
+        print("AFTER SEAT SELECTION:")
+        print(f"  - Current seat: {getattr(self.game_state, 'seat', 'None')}")
+        print(f"  - Active seats: {getattr(self.game_state, '_active_seats', 'None')}")
+
+        # Check if panels exist
+        print("PANEL EXISTENCE CHECK:")
+        print(f"  - Dealer panel exists: {self.game_state.dealer_panel is not None}")
+        print(f"  - Player panel exists: {self.game_state.player_panel is not None}")
+        print(f"  - Shared input panel exists: {self.game_state.shared_input_panel is not None}")
+
+        # Reset and start the game
+        print("PROMPT_SEAT: Calling reset_flow()")
         self.reset_flow()
+        print("=" * 50)
 
     def on_decks_change(self):
         """Handle deck change."""
@@ -301,18 +393,39 @@ class BlackjackTrackerApp(tk.Tk):
         self._update_counting_display()
 
     def reset_flow(self):
-        """Reset game with panel height synchronization."""
-        print("RESET_FLOW: Resetting game flow")
+        """Reset game with detailed debugging."""
+        print("\n" + "-" * 30)
+        print("RESET_FLOW: Starting reset")
+        print("-" * 30)
+
+        # Debug state before reset
+        print("BEFORE RESET:")
+        print(f"  - Seat: {getattr(self.game_state, 'seat', 'None')}")
+        print(f"  - Active seats: {getattr(self.game_state, '_active_seats', 'None')}")
+
+        # Reset core game state
         self.game_state.reset_game()
 
         # Reset counting systems
         self.count_manager.reset()
         self.count_panel.reset_displays()
 
+        # Debug state after reset
+        print("AFTER RESET:")
+        print(f"  - Seat: {getattr(self.game_state, 'seat', 'None')}")
+        print(f"  - Active seats: {getattr(self.game_state, '_active_seats', 'None')}")
+        print(f"  - Focus idx: {getattr(self.game_state, '_focus_idx', 'None')}")
+        print(f"  - Play phase: {getattr(self.game_state, '_play_phase', 'None')}")
+        print(f"  - Deal step: {getattr(self.game_state, '_deal_step', 'None')}")
+
         # SYNCHRONIZE PANEL HEIGHTS AFTER RESET
         self.after_idle(self._synchronize_panel_heights)
 
+        # Set initial focus
+        print("RESET_FLOW: Calling set_focus()")
         self.set_focus()
+        print("RESET_FLOW: Reset complete")
+        print("-" * 30)
 
     def set_focus(self):
         """Set focus with proper phase management."""
@@ -338,107 +451,179 @@ class BlackjackTrackerApp(tk.Tk):
             traceback.print_exc()
 
     def _simple_set_focus(self):
-        """SAFE: Set focus with proper phase management and null checks."""
-        print(
-            f"SIMPLE_FOCUS: Current focus_idx={self.game_state._focus_idx}, play_phase={self.game_state.is_play_phase()}")
+        """Debug version of set focus."""
+        print(f"\n" + "+" * 40)
+        print("SET_FOCUS: Starting focus management")
+        print("+" * 40)
 
-        # SAFE: Reset all panels with null checks
-        if self.game_state.seat_hands:
-            for seat, panel in self.game_state.seat_hands.items():
-                if panel:
-                    panel.highlight(active=False)
+        # Debug current state
+        print("CURRENT STATE:")
+        print(f"  - Focus idx: {getattr(self.game_state, '_focus_idx', 'None')}")
+        print(f"  - Play phase: {getattr(self.game_state, '_play_phase', 'None')}")
+        print(f"  - Deal step: {getattr(self.game_state, '_deal_step', 'None')}")
+        print(f"  - Active seats: {getattr(self.game_state, '_active_seats', 'None')}")
+        print(f"  - Player seat: {getattr(self.game_state, 'seat', 'None')}")
+        print(f"  - Auto focus: {getattr(self.game_state, '_auto_focus', 'None')}")
+
+        # Check panel states
+        print("PANEL STATES:")
+        if self.game_state.dealer_panel:
+            print(f"  - Dealer panel: EXISTS")
+        else:
+            print(f"  - Dealer panel: MISSING!")
 
         if self.game_state.player_panel:
-            self.game_state.player_panel.set_enabled(False)
+            print(f"  - Player panel: EXISTS")
+        else:
+            print(f"  - Player panel: MISSING!")
 
         if self.game_state.shared_input_panel:
+            print(f"  - Shared input panel: EXISTS")
+        else:
+            print(f"  - Shared input panel: MISSING!")
+
+        # Reset all panels
+        print("RESETTING ALL PANELS...")
+        panels_reset = 0
+
+        if self.game_state.seat_hands:
+            for seat, panel in self.game_state.seat_hands.items():
+                if panel and hasattr(panel, 'highlight'):
+                    panel.highlight(active=False)
+                    panels_reset += 1
+
+        if self.game_state.player_panel and hasattr(self.game_state.player_panel, 'set_enabled'):
+            self.game_state.player_panel.set_enabled(False)
+            panels_reset += 1
+            print(f"  - Player panel disabled")
+
+        if self.game_state.shared_input_panel and hasattr(self.game_state.shared_input_panel, 'set_enabled'):
             self.game_state.shared_input_panel.set_enabled(False)
+            panels_reset += 1
+            print(f"  - Shared input panel disabled")
 
-        if self.game_state.dealer_panel:
+        if self.game_state.dealer_panel and hasattr(self.game_state.dealer_panel, 'set_enabled'):
             self.game_state.dealer_panel.set_enabled(False)
+            panels_reset += 1
+            print(f"  - Dealer panel disabled")
 
-        print("SIMPLE_FOCUS: Reset all panels")
+        print(f"RESET COMPLETE: {panels_reset} panels reset")
 
-        if not self.game_state._auto_focus:
-            # Manual mode - enable everything
-            print("SIMPLE_FOCUS: Manual mode - enabling all panels")
+        # Check for problems
+        if not self.game_state._active_seats:
+            print("PROBLEM: No active seats!")
+            print("SOLUTION: Enabling all panels as fallback")
+            if self.game_state.shared_input_panel:
+                self.game_state.shared_input_panel.set_enabled(True)
+                print("  - Shared input enabled")
+            if self.game_state.player_panel:
+                self.game_state.player_panel.set_enabled(True)
+                print("  - Player panel enabled")
+            if self.game_state.dealer_panel:
+                self.game_state.dealer_panel.set_enabled(True)
+                print("  - Dealer panel enabled")
+            print("+" * 40)
+            return
+
+        if not hasattr(self.game_state, '_auto_focus') or not self.game_state._auto_focus:
+            print("MANUAL MODE: Enabling all panels")
             if self.game_state.shared_input_panel:
                 self.game_state.shared_input_panel.set_enabled(True)
             if self.game_state.player_panel:
-                self.game_state.player_panel.update_mode(self.game_state.is_play_phase())
+                if hasattr(self.game_state.player_panel, 'update_mode'):
+                    self.game_state.player_panel.update_mode(self.game_state.is_play_phase())
                 self.game_state.player_panel.set_enabled(True)
             if self.game_state.dealer_panel:
-                self.game_state.dealer_panel.set_play_mode()
+                if hasattr(self.game_state.dealer_panel, 'set_play_mode'):
+                    self.game_state.dealer_panel.set_play_mode()
                 self.game_state.dealer_panel.set_enabled(True)
+            print("+" * 40)
             return
 
+        # Auto focus mode
         if self.game_state.is_play_phase():
-            print("SIMPLE_FOCUS: Play phase")
+            print("AUTO FOCUS: Play phase")
             order = list(reversed(self.game_state._active_seats))
+            print(f"  - Play order: {order}")
+
             if self.game_state._focus_idx < len(order):
                 seat = order[self.game_state._focus_idx]
+                print(f"  - Current focus: seat {seat}")
+
                 if seat == self.game_state.seat:
-                    print(f"SIMPLE_FOCUS: Enabling PLAYER (seat {seat})")
+                    print("  - This is player's seat - enabling PLAYER PANEL")
                     if self.game_state.player_panel:
-                        self.game_state.player_panel.update_mode(True)  # Play mode
+                        if hasattr(self.game_state.player_panel, 'update_mode'):
+                            self.game_state.player_panel.update_mode(True)
                         self.game_state.player_panel.set_enabled(True)
+                        print("  - Player panel enabled")
+                    else:
+                        print("  - ERROR: Player panel is None!")
                 else:
-                    print(f"SIMPLE_FOCUS: Enabling SHARED INPUT for seat {seat}")
+                    print(f"  - Other player's seat - enabling SHARED INPUT")
                     if self.game_state.shared_input_panel:
                         self.game_state.shared_input_panel.set_enabled(True)
+                        print("  - Shared input enabled")
                     if seat in self.game_state.seat_hands and self.game_state.seat_hands[seat]:
-                        self.game_state.seat_hands[seat].highlight(active=True)
+                        if hasattr(self.game_state.seat_hands[seat], 'highlight'):
+                            self.game_state.seat_hands[seat].highlight(active=True)
+                            print(f"  - Seat {seat} highlighted")
             else:
-                print("SIMPLE_FOCUS: Enabling DEALER for play")
+                print("  - Focus beyond seats - enabling DEALER PANEL")
                 if self.game_state.dealer_panel:
-                    self.game_state.dealer_panel.set_play_mode()
+                    if hasattr(self.game_state.dealer_panel, 'set_play_mode'):
+                        self.game_state.dealer_panel.set_play_mode()
                     self.game_state.dealer_panel.set_enabled(True)
+                    print("  - Dealer panel enabled for play")
         else:
-            print("SIMPLE_FOCUS: Dealing phase")
+            print("AUTO FOCUS: Dealing phase")
             order = list(reversed(self.game_state._active_seats))
             n = len(order)
+            print(f"  - Deal order: {order}")
+            print(f"  - Focus idx: {self.game_state._focus_idx}, n: {n}")
 
             if self.game_state._deal_step < 2:
                 if self.game_state._focus_idx < n:
                     seat = order[self.game_state._focus_idx]
-                    print(f"SIMPLE_FOCUS: Current seat in dealing: {seat}")
+                    print(f"  - Dealing to seat: {seat}")
 
                     if seat == self.game_state.seat:
-                        # Player's turn to get a card
-                        if self.game_state.player_panel and self.game_state.player_panel.hands:
-                            cards_needed = self.game_state._deal_step + 1
-                            current_cards = len(self.game_state.player_panel.hands[0])
-                            print(f"SIMPLE_FOCUS: Player needs {cards_needed} cards, has {current_cards}")
-
-                            if current_cards >= cards_needed:
-                                print("SIMPLE_FOCUS: Player has enough cards, advancing flow")
-                                self.advance_flow()
-                                return
-
-                        print("SIMPLE_FOCUS: Enabling PLAYER for dealing")
+                        print("  - Player's turn - enabling PLAYER PANEL")
                         if self.game_state.player_panel:
-                            self.game_state.player_panel.update_mode(False)  # Dealing mode
+                            if hasattr(self.game_state.player_panel, 'update_mode'):
+                                self.game_state.player_panel.update_mode(False)  # Dealing mode
                             self.game_state.player_panel.set_enabled(True)
+                            print("  - Player panel enabled for dealing")
+                        else:
+                            print("  - ERROR: Player panel is None!")
                     else:
-                        # Other seat's turn to get a card
-                        print(f"SIMPLE_FOCUS: Enabling SHARED INPUT for dealing to {seat}")
+                        print(f"  - Other seat - enabling SHARED INPUT")
                         if self.game_state.shared_input_panel:
                             self.game_state.shared_input_panel.set_enabled(True)
+                            print("  - Shared input enabled")
                         if seat in self.game_state.seat_hands and self.game_state.seat_hands[seat]:
-                            self.game_state.seat_hands[seat].highlight(active=True)
+                            if hasattr(self.game_state.seat_hands[seat], 'highlight'):
+                                self.game_state.seat_hands[seat].highlight(active=True)
+                                print(f"  - Seat {seat} highlighted")
 
                 elif self.game_state._focus_idx == n:
-                    print("SIMPLE_FOCUS: Enabling DEALER for dealing")
+                    print("  - Dealer's turn - enabling DEALER PANEL")
                     if self.game_state.dealer_panel:
-                        self.game_state.dealer_panel.set_dealer_turn(self.game_state._deal_step)
+                        if hasattr(self.game_state.dealer_panel, 'set_dealer_turn'):
+                            self.game_state.dealer_panel.set_dealer_turn(self.game_state._deal_step)
                         self.game_state.dealer_panel.set_enabled(True)
+                        print(f"  - Dealer panel enabled for deal step {self.game_state._deal_step}")
+                    else:
+                        print("  - ERROR: Dealer panel is None!")
             else:
-                print("SIMPLE_FOCUS: Dealing complete, switching to play phase")
+                print("  - Dealing complete - switching to play phase")
                 self.game_state._play_phase = True
                 self.game_state._focus_idx = 0
+                print("  - Recursively calling set_focus for play phase")
                 self.set_focus()
 
-        print("SIMPLE_FOCUS: Completed")
+        print("SET_FOCUS: Focus management complete")
+        print("+" * 40)
 
     def advance_flow(self):
         """Advance dealing flow."""

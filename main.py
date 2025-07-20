@@ -33,18 +33,26 @@ class BlackjackTrackerApp(tk.Tk):
         self.geometry("1200x700")  # Keep original size
         self.configure(bg=COLORS['bg_main'])
 
-        # Initialize core managers
+        # STEP 1: Initialize core managers FIRST
         self.game_state = GameState(DEFAULT_DECKS)
         self.action_handler = ActionHandler(self)
         self.focus_manager = FocusManager(self.game_state)
-        # ADD THIS: Initialize counting system
         self.count_manager = CountManager(DEFAULT_DECKS)
 
+        # STEP 2: Initialize UI-related attributes to prevent AttributeError
+        self.dealer_border = None
+        self.player_border = None
+        self.panel_min_height = 180
+
+        # STEP 3: Build the complete UI
         self._setup_ui()
+
+        # STEP 4: Setup keyboard bindings
         self._setup_bindings()
 
-        # Prompt for seat selection
-        self.after(200, self.prompt_seat_selection)
+        # STEP 5: Only AFTER everything is built, prompt for seat selection
+        # Use longer delay to ensure UI is fully rendered
+        self.after(500, self.prompt_seat_selection)
 
     def _calculate_aces_left(self):
         """Calculate aces remaining based on composition panel."""
@@ -132,9 +140,12 @@ class BlackjackTrackerApp(tk.Tk):
         )
         self.game_state.shared_input_panel.pack(padx=3, pady=3)
 
-        # 4. GAME PANELS SECTION (Dealer + Player)
+        # 4. GAME PANELS SECTION (Dealer + Player) - SYNCHRONIZED HEIGHTS
         game_panels_container = tk.Frame(left_frame, bg=COLORS['bg_main'])
         game_panels_container.pack(fill='x', pady=5, padx=5)
+
+        # Set fixed minimum height for synchronized panels
+        PANEL_MIN_HEIGHT = 180  # Minimum height for both panels
 
         # Dealer panel with border and label
         dealer_container = tk.Frame(game_panels_container, bg=COLORS['bg_main'])
@@ -144,18 +155,20 @@ class BlackjackTrackerApp(tk.Tk):
                                 font=('Segoe UI', 10, 'bold'), bg=COLORS['bg_main'], fg=COLORS['fg_white'])
         dealer_label.pack(pady=(0, 3))
 
-        dealer_border = tk.Frame(dealer_container, relief=tk.SUNKEN, bd=1)
-        dealer_border.pack(fill='both', expand=True)
+        # Fixed height border frame for dealer with minimum height
+        self.dealer_border = tk.Frame(dealer_container, relief=tk.SUNKEN, bd=1, height=PANEL_MIN_HEIGHT)
+        self.dealer_border.pack(fill='x')
+        self.dealer_border.pack_propagate(False)  # Prevent automatic height changes
 
         self.game_state.dealer_panel = DealerPanel(
-            dealer_border,
+            self.dealer_border,
             self.on_dealer_card,
             self.on_dealer_undo,
             hole_card_reveal=True,
             on_global_undo=self.handle_shared_undo,
             undo_manager=self.action_handler.undo_manager
         )
-        self.game_state.dealer_panel.pack(padx=3, pady=3)
+        self.game_state.dealer_panel.pack(fill='both', expand=True, padx=3, pady=3)
 
         # Player panel with border and label
         player_container = tk.Frame(game_panels_container, bg=COLORS['bg_main'])
@@ -165,18 +178,23 @@ class BlackjackTrackerApp(tk.Tk):
                                 font=('Segoe UI', 10, 'bold'), bg=COLORS['bg_main'], fg=COLORS['fg_white'])
         player_label.pack(pady=(0, 3))
 
-        player_border = tk.Frame(player_container, relief=tk.SUNKEN, bd=1)
-        player_border.pack(fill='both', expand=True)
+        # Fixed height border frame for player with minimum height
+        self.player_border = tk.Frame(player_container, relief=tk.SUNKEN, bd=1, height=PANEL_MIN_HEIGHT)
+        self.player_border.pack(fill='x')
+        self.player_border.pack_propagate(False)  # Prevent automatic height changes
 
         self.game_state.player_panel = PlayerPanel(
-            player_border,
+            self.player_border,
             self.on_player_card,
             self.on_player_undo,
             on_action=self.handle_player_action,
             on_global_undo=self.handle_shared_undo,
             undo_manager=self.action_handler.undo_manager
         )
-        self.game_state.player_panel.pack(padx=3, pady=3)
+        self.game_state.player_panel.pack(fill='both', expand=True, padx=3, pady=3)
+
+        # Store minimum height for later use
+        self.panel_min_height = PANEL_MIN_HEIGHT
 
         # === VERTICAL DIVIDER ===
         divider_frame = tk.Frame(
@@ -221,6 +239,34 @@ class BlackjackTrackerApp(tk.Tk):
         future_content = tk.Frame(future_features_frame, bg=COLORS['bg_main'], height=50)
         future_content.pack(fill='x', padx=10, pady=(0, 10))
         future_content.pack_propagate(False)
+
+    def _synchronize_panel_heights(self):
+        """Ensure dealer and player panels maintain synchronized heights."""
+        if not hasattr(self, 'dealer_border') or not hasattr(self, 'player_border'):
+            return
+
+        try:
+            # Update display layouts first to get accurate measurements
+            self.game_state.dealer_panel.update_idletasks()
+            self.game_state.player_panel.update_idletasks()
+
+            # Get the current required heights for both panels
+            dealer_required = self.game_state.dealer_panel.winfo_reqheight()
+            player_required = self.game_state.player_panel.winfo_reqheight()
+
+            # Set both to the maximum height needed, with minimum constraint
+            max_height = max(self.panel_min_height, dealer_required, player_required)
+
+            # Update both panel heights
+            self.dealer_border.config(height=max_height)
+            self.player_border.config(height=max_height)
+
+            # Force immediate visual update
+            self.dealer_border.update_idletasks()
+            self.player_border.update_idletasks()
+
+        except Exception as e:
+            print(f"ERROR in _synchronize_panel_heights: {e}")
 
     def _setup_bindings(self):
         """Setup keyboard bindings."""
@@ -267,13 +313,16 @@ class BlackjackTrackerApp(tk.Tk):
         self._update_counting_display()
 
     def reset_flow(self):
-        """Reset game."""
+        """Reset game with panel height synchronization."""
         print("RESET_FLOW: Resetting game flow")
         self.game_state.reset_game()
 
-        # ADD THIS: Reset counting systems
+        # Reset counting systems
         self.count_manager.reset()
         self.count_panel.reset_displays()
+
+        # SYNCHRONIZE PANEL HEIGHTS AFTER RESET
+        self.after_idle(self._synchronize_panel_heights)
 
         self.set_focus()
 
@@ -301,29 +350,38 @@ class BlackjackTrackerApp(tk.Tk):
             traceback.print_exc()
 
     def _simple_set_focus(self):
-        """ENHANCED: Set focus with proper phase management for panels."""
+        """SAFE: Set focus with proper phase management and null checks."""
         print(
             f"SIMPLE_FOCUS: Current focus_idx={self.game_state._focus_idx}, play_phase={self.game_state.is_play_phase()}")
 
-        # Reset all panels
-        for seat, panel in self.game_state.seat_hands.items():
-            panel.highlight(active=False)
+        # SAFE: Reset all panels with null checks
+        if self.game_state.seat_hands:
+            for seat, panel in self.game_state.seat_hands.items():
+                if panel:
+                    panel.highlight(active=False)
 
         if self.game_state.player_panel:
             self.game_state.player_panel.set_enabled(False)
 
-        self.game_state.shared_input_panel.set_enabled(False)
-        self.game_state.dealer_panel.set_enabled(False)
+        if self.game_state.shared_input_panel:
+            self.game_state.shared_input_panel.set_enabled(False)
+
+        if self.game_state.dealer_panel:
+            self.game_state.dealer_panel.set_enabled(False)
+
         print("SIMPLE_FOCUS: Reset all panels")
 
         if not self.game_state._auto_focus:
             # Manual mode - enable everything
             print("SIMPLE_FOCUS: Manual mode - enabling all panels")
-            self.game_state.shared_input_panel.set_enabled(True)
-            self.game_state.player_panel.update_mode(self.game_state.is_play_phase())
-            self.game_state.player_panel.set_enabled(True)
-            self.game_state.dealer_panel.set_play_mode()
-            self.game_state.dealer_panel.set_enabled(True)
+            if self.game_state.shared_input_panel:
+                self.game_state.shared_input_panel.set_enabled(True)
+            if self.game_state.player_panel:
+                self.game_state.player_panel.update_mode(self.game_state.is_play_phase())
+                self.game_state.player_panel.set_enabled(True)
+            if self.game_state.dealer_panel:
+                self.game_state.dealer_panel.set_play_mode()
+                self.game_state.dealer_panel.set_enabled(True)
             return
 
         if self.game_state.is_play_phase():
@@ -333,16 +391,20 @@ class BlackjackTrackerApp(tk.Tk):
                 seat = order[self.game_state._focus_idx]
                 if seat == self.game_state.seat:
                     print(f"SIMPLE_FOCUS: Enabling PLAYER (seat {seat})")
-                    self.game_state.player_panel.update_mode(True)  # Play mode
-                    self.game_state.player_panel.set_enabled(True)
+                    if self.game_state.player_panel:
+                        self.game_state.player_panel.update_mode(True)  # Play mode
+                        self.game_state.player_panel.set_enabled(True)
                 else:
                     print(f"SIMPLE_FOCUS: Enabling SHARED INPUT for seat {seat}")
-                    self.game_state.shared_input_panel.set_enabled(True)
-                    self.game_state.seat_hands[seat].highlight(active=True)
+                    if self.game_state.shared_input_panel:
+                        self.game_state.shared_input_panel.set_enabled(True)
+                    if seat in self.game_state.seat_hands and self.game_state.seat_hands[seat]:
+                        self.game_state.seat_hands[seat].highlight(active=True)
             else:
                 print("SIMPLE_FOCUS: Enabling DEALER for play")
-                self.game_state.dealer_panel.set_play_mode()
-                self.game_state.dealer_panel.set_enabled(True)
+                if self.game_state.dealer_panel:
+                    self.game_state.dealer_panel.set_play_mode()
+                    self.game_state.dealer_panel.set_enabled(True)
         else:
             print("SIMPLE_FOCUS: Dealing phase")
             order = list(reversed(self.game_state._active_seats))
@@ -355,28 +417,33 @@ class BlackjackTrackerApp(tk.Tk):
 
                     if seat == self.game_state.seat:
                         # Player's turn to get a card
-                        cards_needed = self.game_state._deal_step + 1
-                        current_cards = len(self.game_state.player_panel.hands[0])
-                        print(f"SIMPLE_FOCUS: Player needs {cards_needed} cards, has {current_cards}")
+                        if self.game_state.player_panel and self.game_state.player_panel.hands:
+                            cards_needed = self.game_state._deal_step + 1
+                            current_cards = len(self.game_state.player_panel.hands[0])
+                            print(f"SIMPLE_FOCUS: Player needs {cards_needed} cards, has {current_cards}")
 
-                        if current_cards >= cards_needed:
-                            print("SIMPLE_FOCUS: Player has enough cards, advancing flow")
-                            self.advance_flow()
-                            return
+                            if current_cards >= cards_needed:
+                                print("SIMPLE_FOCUS: Player has enough cards, advancing flow")
+                                self.advance_flow()
+                                return
 
                         print("SIMPLE_FOCUS: Enabling PLAYER for dealing")
-                        self.game_state.player_panel.update_mode(False)  # Dealing mode
-                        self.game_state.player_panel.set_enabled(True)
+                        if self.game_state.player_panel:
+                            self.game_state.player_panel.update_mode(False)  # Dealing mode
+                            self.game_state.player_panel.set_enabled(True)
                     else:
                         # Other seat's turn to get a card
                         print(f"SIMPLE_FOCUS: Enabling SHARED INPUT for dealing to {seat}")
-                        self.game_state.shared_input_panel.set_enabled(True)
-                        self.game_state.seat_hands[seat].highlight(active=True)
+                        if self.game_state.shared_input_panel:
+                            self.game_state.shared_input_panel.set_enabled(True)
+                        if seat in self.game_state.seat_hands and self.game_state.seat_hands[seat]:
+                            self.game_state.seat_hands[seat].highlight(active=True)
 
                 elif self.game_state._focus_idx == n:
                     print("SIMPLE_FOCUS: Enabling DEALER for dealing")
-                    self.game_state.dealer_panel.set_dealer_turn(self.game_state._deal_step)
-                    self.game_state.dealer_panel.set_enabled(True)
+                    if self.game_state.dealer_panel:
+                        self.game_state.dealer_panel.set_dealer_turn(self.game_state._deal_step)
+                        self.game_state.dealer_panel.set_enabled(True)
             else:
                 print("SIMPLE_FOCUS: Dealing complete, switching to play phase")
                 self.game_state._play_phase = True
@@ -398,36 +465,23 @@ class BlackjackTrackerApp(tk.Tk):
         self.set_focus()
 
     # CARD INPUT HANDLERS
-    def on_player_card(self, rank, suit, is_hole=False):
-        """Handle player card."""
+    def on_dealer_card(self, rank, suit, is_hole=False):
+        """Handle dealer card with panel height synchronization."""
         try:
-            print(f"\nON_PLAYER_CARD: {rank}{suit} (hole={is_hole})")
-            self.game_state.log_card(rank)
-            # ADD THIS: Update counting systems (only for non-hole cards)
+            print(f"ON_DEALER_CARD: {rank}{suit} (hole={is_hole})")
             if not is_hole:
+                self.game_state.log_card(rank)
+                # Update counting systems (only for non-hole cards)
                 self.count_manager.add_card(rank)
                 self._update_counting_display()
-
-            if self.game_state.is_play_phase():
-                print("ON_PLAYER_CARD: In play phase")
-                current_score = self.game_state.player_panel.calculate_score()
-                print(f"ON_PLAYER_CARD: Current score: {current_score}")
-                if current_score >= 21:
-                    print("ON_PLAYER_CARD: Hand finished, handling completion")
-                    self._handle_player_completion()
-                else:
-                    print("ON_PLAYER_CARD: Hand continues, setting focus")
-                    self.set_focus()
-            else:
-                print("ON_PLAYER_CARD: In dealing phase, advancing flow")
+            if not self.game_state.is_play_phase():
                 self.advance_flow()
 
-            print("ON_PLAYER_CARD: Completed\n")
+            # SYNCHRONIZE PANEL HEIGHTS AFTER CARD INPUT
+            self.after_idle(self._synchronize_panel_heights)
 
         except Exception as e:
-            print(f"ERROR in on_player_card: {e}")
-            import traceback
-            traceback.print_exc()
+            print(f"ERROR in on_dealer_card: {e}")
 
     def _handle_player_completion(self):
         """Handle player hand completion."""
@@ -446,11 +500,15 @@ class BlackjackTrackerApp(tk.Tk):
             self.advance_play_focus()
 
     def on_player_undo(self, rank=None, is_hole=False):
-        """Handle player undo."""
+        """Handle player undo with panel height synchronization."""
         try:
             print(f"ON_PLAYER_UNDO: rank={rank}, is_hole={is_hole}")
             if rank:
                 self.game_state.undo_card(rank)
+
+            # SYNCHRONIZE PANEL HEIGHTS AFTER UNDO
+            self.after_idle(self._synchronize_panel_heights)
+
         except Exception as e:
             print(f"ERROR in on_player_undo: {e}")
 
@@ -468,12 +526,51 @@ class BlackjackTrackerApp(tk.Tk):
         except Exception as e:
             print(f"ERROR in on_dealer_card: {e}")
 
+    def on_player_card(self, rank, suit, is_hole=False):
+        """Handle player card with panel height synchronization."""
+        try:
+            print(f"\nON_PLAYER_CARD: {rank}{suit} (hole={is_hole})")
+            self.game_state.log_card(rank)
+            # Update counting systems (only for non-hole cards)
+            if not is_hole:
+                self.count_manager.add_card(rank)
+                self._update_counting_display()
+
+            if self.game_state.is_play_phase():
+                print("ON_PLAYER_CARD: In play phase")
+                if self.game_state.player_panel:
+                    current_score = self.game_state.player_panel.calculate_score()
+                    print(f"ON_PLAYER_CARD: Current score: {current_score}")
+                    if current_score >= 21:
+                        print("ON_PLAYER_CARD: Hand finished, handling completion")
+                        self._handle_player_completion()
+                    else:
+                        print("ON_PLAYER_CARD: Hand continues, setting focus")
+                        self.set_focus()
+            else:
+                print("ON_PLAYER_CARD: In dealing phase, advancing flow")
+                self.advance_flow()
+
+            # SYNCHRONIZE PANEL HEIGHTS AFTER CARD INPUT
+            self.after_idle(self._synchronize_panel_heights)
+
+            print("ON_PLAYER_CARD: Completed\n")
+
+        except Exception as e:
+            print(f"ERROR in on_player_card: {e}")
+            import traceback
+            traceback.print_exc()
+
     def on_dealer_undo(self, rank=None, is_hole=False):
-        """Handle dealer undo."""
+        """Handle dealer undo with panel height synchronization."""
         try:
             print(f"ON_DEALER_UNDO: rank={rank}, is_hole={is_hole}")
             if rank and not is_hole:
                 self.game_state.undo_card(rank)
+
+            # SYNCHRONIZE PANEL HEIGHTS AFTER UNDO
+            self.after_idle(self._synchronize_panel_heights)
+
         except Exception as e:
             print(f"ERROR in on_dealer_undo: {e}")
 
@@ -493,12 +590,15 @@ class BlackjackTrackerApp(tk.Tk):
             traceback.print_exc()
 
     def handle_shared_undo(self):
-        """GLOBAL UNDO - Handle shared undo across all panels."""
+        """GLOBAL UNDO with panel height synchronization."""
         try:
             print("HANDLE_SHARED_UNDO: Global undo called")
             result = self.action_handler.handle_shared_undo()
-            # ADD THIS: Sync counting systems after undo
+            # Sync counting systems after undo
             self._sync_counting_systems()
+
+            # SYNCHRONIZE PANEL HEIGHTS AFTER UNDO
+            self.after_idle(self._synchronize_panel_heights)
 
             return result
         except Exception as e:

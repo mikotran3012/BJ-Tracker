@@ -67,7 +67,7 @@ class BlackjackTrackerApp(tk.Tk):
         self.count_panel.update_panel(cards_left, aces_left, self.game_state.decks)
 
     def _setup_ui(self):
-        """Setup UI with fully independent left/right columns and vertical divider - matches diagram layout."""
+        """Setup UI with fully independent left/right columns and vertical divider - compact layout."""
 
         # TOP-LEVEL CONTAINER: Grid-based layout for left/divider/right
         main_top_row = tk.Frame(self, bg=COLORS['bg_main'])
@@ -83,31 +83,31 @@ class BlackjackTrackerApp(tk.Tk):
         left_frame = tk.Frame(main_top_row, bg=COLORS['bg_main'], relief=tk.GROOVE, bd=1)
         left_frame.grid(row=0, column=0, sticky='nsew', padx=(0, 3))
 
-        # 1. CARD COMPOSITION TRACKER (top of left column)
+        # 1. CARD COMPOSITION TRACKER (top of left column) - REMOVED HEADER
         comp_container = tk.Frame(left_frame, bg=COLORS['bg_main'])
         comp_container.pack(fill='x', pady=5, padx=5)
 
-        # Add a label to match the diagram
-        comp_label = tk.Label(comp_container, text="CARD COMPOSITION TRACKER",
-                              font=('Segoe UI', 10, 'bold'), bg=COLORS['bg_main'], fg=COLORS['fg_white'])
-        comp_label.pack(pady=(0, 5))
+        # REMOVED: comp_label header for cleaner look
+        # comp_label = tk.Label(comp_container, text="CARD COMPOSITION TRACKER",
+        #                       font=('Segoe UI', 10, 'bold'), bg=COLORS['bg_main'], fg=COLORS['fg_white'])
+        # comp_label.pack(pady=(0, 5))
 
         self.game_state.comp_panel = CompPanel(comp_container, self.on_decks_change, self.game_state.decks)
         self.game_state.comp_panel.pack(anchor='w')
 
-        # 2. SEATS SECTION
+        # 2. SEATS SECTION - LEFT ALIGNED
         seats_container = tk.Frame(left_frame, bg=COLORS['bg_main'])
-        seats_container.pack(fill='x', pady=5, padx=5)
+        seats_container.pack(fill='x', pady=5, padx=(5, 5), anchor='w')  # Left aligned container
 
         tk.Label(seats_container, text="SEATS", font=('Segoe UI', 10, 'bold'),
                  bg=COLORS['bg_main'], fg=COLORS['fg_white']).pack(anchor='w', pady=(0, 3))
 
         seats_row = tk.Frame(seats_container, bg=COLORS['bg_main'], relief=tk.SUNKEN, bd=1)
-        seats_row.pack(fill='x', pady=2)
+        seats_row.pack(anchor='w', pady=2)  # Left aligned row, no fill='x'
 
-        # Add padding inside seats row
+        # Add padding inside seats row - minimal horizontal padding
         seats_inner = tk.Frame(seats_row, bg=COLORS['bg_main'])
-        seats_inner.pack(pady=3, padx=3)
+        seats_inner.pack(pady=3, padx=2)  # Reduced horizontal padding
 
         for si, seat in enumerate(SEATS):
             self.game_state.seat_hands[seat] = SeatHandPanel(
@@ -116,21 +116,18 @@ class BlackjackTrackerApp(tk.Tk):
             )
             self.game_state.seat_hands[seat].pack(side=tk.LEFT, padx=1)
 
-        # 3. SHARED CARD INPUT PANEL
+        # 3. SHARED CARD INPUT PANEL - RESTORED AND COMPACT
         input_container = tk.Frame(left_frame, bg=COLORS['bg_main'])
-        input_container.pack(fill='x', pady=5, padx=5)
+        input_container.pack(fill='x', pady=(5, 2), padx=0)  # Full width, minimal padding
 
-        # Add label to match diagram
-        input_label = tk.Label(input_container, text="SHARED CARD INPUT PANEL",
-                               font=('Segoe UI', 10, 'bold'), bg=COLORS['bg_main'], fg=COLORS['fg_white'])
-        input_label.pack(anchor='w', pady=(0, 3))
+        # REMOVED: input_label header for more compact layout
+        # input_label = tk.Label(input_container, text="SHARED CARD INPUT PANEL",
+        #                        font=('Segoe UI', 10, 'bold'), bg=COLORS['bg_main'], fg=COLORS['fg_white'])
+        # input_label.pack(anchor='w', pady=(0, 3))
 
-        # Container with border for the input panel
-        input_border = tk.Frame(input_container, bg=COLORS['bg_main'], relief=tk.SUNKEN, bd=1)
-        input_border.pack(fill='x')
-
+        # FIXED: Create SharedInputPanel directly in the container with proper sizing
         self.game_state.shared_input_panel = SharedInputPanel(
-            input_border,
+            input_container,
             self.handle_shared_card,
             self.handle_shared_undo
         )
@@ -138,16 +135,17 @@ class BlackjackTrackerApp(tk.Tk):
             on_stand=self.handle_shared_stand,
             on_split=self.handle_shared_split
         )
-        self.game_state.shared_input_panel.pack(padx=3, pady=3)
+        # Pack with left alignment and minimal padding for compact layout
+        self.game_state.shared_input_panel.pack(anchor='w', padx=5, pady=2)
 
-        # 4. GAME PANELS SECTION (Dealer + Player) - SYNCHRONIZED HEIGHTS
+        # 4. GAME PANELS SECTION (Dealer + Player) - SYNCHRONIZED HEIGHTS - MORE SPACE
         game_panels_container = tk.Frame(left_frame, bg=COLORS['bg_main'])
         game_panels_container.pack(fill='x', pady=5, padx=5)
 
-        # Set fixed minimum height for synchronized panels
-        PANEL_MIN_HEIGHT = 180  # Minimum height for both panels
+        # Set fixed minimum height for synchronized panels - INCREASED for more space
+        PANEL_MIN_HEIGHT = 200  # Increased from 180 for more visual space
 
-        # Dealer panel with border and label
+        # Dealer panel with border and label - KEEP HEADER
         dealer_container = tk.Frame(game_panels_container, bg=COLORS['bg_main'])
         dealer_container.pack(side=tk.LEFT, fill='both', expand=True, padx=(0, 3))
 
@@ -170,7 +168,7 @@ class BlackjackTrackerApp(tk.Tk):
         )
         self.game_state.dealer_panel.pack(fill='both', expand=True, padx=3, pady=3)
 
-        # Player panel with border and label
+        # Player panel with border and label - KEEP HEADER
         player_container = tk.Frame(game_panels_container, bg=COLORS['bg_main'])
         player_container.pack(side=tk.LEFT, fill='both', expand=True, padx=(3, 0))
 
@@ -207,21 +205,13 @@ class BlackjackTrackerApp(tk.Tk):
         divider_frame.grid(row=0, column=1, sticky='ns', padx=1)
         divider_frame.grid_propagate(False)  # Maintain fixed width
 
-        # === RIGHT COLUMN: Counting systems only ===
+        # === RIGHT COLUMN: Counting systems only - REMOVED HEADER ===
         right_frame = tk.Frame(main_top_row, bg=COLORS['bg_main'], relief=tk.GROOVE, bd=1)
         right_frame.grid(row=0, column=2, sticky='nsew', padx=(3, 0))
 
-        # COUNTING SYSTEMS header and panel
-        count_header_container = tk.Frame(right_frame, bg=COLORS['bg_main'])
-        count_header_container.pack(fill='x', pady=5, padx=5)
-
-        count_header = tk.Label(count_header_container, text="COUNTING SYSTEMS",
-                                font=('Segoe UI', 12, 'bold'), bg=COLORS['bg_main'], fg=COLORS['fg_white'])
-        count_header.pack()
-
-        # Container for the counting panel
+        # Container for the counting panel - MORE COMPACT
         count_container = tk.Frame(right_frame, bg=COLORS['bg_main'])
-        count_container.pack(fill='both', expand=True, padx=5, pady=(0, 5))
+        count_container.pack(fill='both', expand=True, padx=3, pady=3)  # Reduced padding
 
         self.count_panel = CountPanel(count_container, self.count_manager)
         self.count_panel.pack(fill='both', expand=True)

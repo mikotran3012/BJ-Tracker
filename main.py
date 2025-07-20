@@ -4,6 +4,7 @@ import os
 
 from counting import CountManager
 from ui.count_panel import CountPanel
+
 # Ensure proper imports
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
@@ -29,7 +30,7 @@ class BlackjackTrackerApp(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Blackjack Card Tracker Pro")
-        self.geometry("1200x700")  # Reduced height since removing debug area
+        self.geometry("1200x700")  # Keep original size
         self.configure(bg=COLORS['bg_main'])
 
         # Initialize core managers
@@ -57,31 +58,32 @@ class BlackjackTrackerApp(tk.Tk):
         aces_left = self._calculate_aces_left()
         self.count_panel.update_panel(cards_left, aces_left, self.game_state.decks)
 
-    # In your main.py _setup_ui method, replace the top section with this:
-
-    # Alternative approach for even tighter left alignment:
-
     def _setup_ui(self):
-        """Setup UI with enlarged composition panel and tight vertical spacing."""
-        # Main container - TIGHT spacing
-        main_container = tk.Frame(self, bg=COLORS['bg_main'])
-        main_container.pack(fill='both', expand=True, padx=(2, 8), pady=6)  # Reduced top/bottom padding
+        """Setup UI with content pushed to top, leaving bottom space for future features."""
+        # Create a top frame that holds all current content
+        top_content_frame = tk.Frame(self, bg=COLORS['bg_main'])
+        top_content_frame.pack(side='top', fill='x', padx=(2, 8), pady=2)
 
-        # TOP SECTION: Enlarged composition + counting panel
-        top_section = tk.Frame(main_container, bg=COLORS['bg_main'])
-        top_section.pack(fill='x', pady=(0, 6))  # Reduced bottom padding
+        # Main container inside top frame - compact without expansion
+        main_container = tk.Frame(top_content_frame, bg=COLORS['bg_main'])
+        main_container.pack(fill='x')
 
-        # LEFT: ENLARGED Composition panel
+        # TOP SECTION: Composition + counting panel side by side
+        top_section = tk.Frame(main_container, bg=COLORS['bg_main'], height=120)
+        top_section.pack(fill='x', pady=(0, 2))
+        top_section.pack_propagate(False)  # Force the height to stay at 120
+
+        # LEFT: Composition panel
         self.game_state.comp_panel = CompPanel(top_section, self.on_decks_change, self.game_state.decks)
-        self.game_state.comp_panel.pack(side=tk.LEFT, anchor='nw', padx=0, pady=0)
+        self.game_state.comp_panel.pack(side=tk.LEFT, anchor='w', padx=0, pady=0)
 
         # RIGHT: Counting panel
         self.count_panel = CountPanel(top_section, self.count_manager)
-        self.count_panel.pack(side=tk.RIGHT, anchor='ne')
+        self.count_panel.pack(side=tk.RIGHT, anchor='e', padx=(10, 0))
 
         # SEATS SECTION: Reduced spacing
         seats_container = tk.Frame(main_container, bg=COLORS['bg_main'])
-        seats_container.pack(fill='x', pady=(0, 6))  # Tight spacing
+        seats_container.pack(fill='x', pady=(0, 2))  # Very tight spacing
 
         tk.Label(seats_container, text="SEATS", font=('Segoe UI', 9, 'bold'),
                  bg=COLORS['bg_main'], fg=COLORS['fg_white']).pack(anchor='w')
@@ -98,7 +100,7 @@ class BlackjackTrackerApp(tk.Tk):
 
         # SHARED INPUT SECTION: Reduced spacing
         input_container = tk.Frame(main_container, bg=COLORS['bg_main'])
-        input_container.pack(fill='x', pady=(0, 6))  # Tight spacing
+        input_container.pack(fill='x', pady=(0, 2))  # Very tight spacing
 
         self.game_state.shared_input_panel = SharedInputPanel(
             input_container,
@@ -111,15 +113,13 @@ class BlackjackTrackerApp(tk.Tk):
         )
         self.game_state.shared_input_panel.pack(anchor='w')
 
-        # GAME PANELS SECTION: PULLED UP - reduced spacing and height
-        game_panels_container = tk.Frame(main_container, bg=COLORS['bg_main'], height=280)  # Reduced height
-        game_panels_container.pack(fill='x', pady=(0, 4))  # Much tighter spacing
-        game_panels_container.pack_propagate(False)
+        # GAME PANELS SECTION: Compact height without expansion
+        game_panels_container = tk.Frame(main_container, bg=COLORS['bg_main'])
+        game_panels_container.pack(fill='x', pady=(0, 2))  # Only fill horizontally, not expand
 
-        # Dealer panel (left side)
-        dealer_container = tk.Frame(game_panels_container, bg=COLORS['bg_main'], width=400)
-        dealer_container.pack(side=tk.LEFT, fill='y', anchor='nw', padx=(0, 10))
-        dealer_container.pack_propagate(False)
+        # Dealer panel (left side) - compact
+        dealer_container = tk.Frame(game_panels_container, bg=COLORS['bg_main'])
+        dealer_container.pack(side=tk.LEFT, anchor='nw', padx=(0, 5))
 
         self.game_state.dealer_panel = DealerPanel(
             dealer_container,
@@ -129,12 +129,11 @@ class BlackjackTrackerApp(tk.Tk):
             on_global_undo=self.handle_shared_undo,
             undo_manager=self.action_handler.undo_manager
         )
-        self.game_state.dealer_panel.pack(fill='both', expand=True)
+        self.game_state.dealer_panel.pack()
 
-        # Player panel (right side)
-        player_container = tk.Frame(game_panels_container, bg=COLORS['bg_main'], width=400)
-        player_container.pack(side=tk.LEFT, fill='y', anchor='nw')
-        player_container.pack_propagate(False)
+        # Player panel (right side) - compact
+        player_container = tk.Frame(game_panels_container, bg=COLORS['bg_main'])
+        player_container.pack(side=tk.LEFT, anchor='nw')
 
         self.game_state.player_panel = PlayerPanel(
             player_container,
@@ -144,10 +143,20 @@ class BlackjackTrackerApp(tk.Tk):
             on_global_undo=self.handle_shared_undo,
             undo_manager=self.action_handler.undo_manager
         )
-        self.game_state.player_panel.pack(fill='both', expand=True)
+        self.game_state.player_panel.pack()
 
-        # REMOVED: Debug status bar and dialog area
-        # This area is now reserved for future features
+        # Bottom area reserved for future features
+        future_features_frame = tk.Frame(self, bg=COLORS['bg_main'])
+        future_features_frame.pack(side='bottom', fill='both', expand=True)
+
+        # Optional: Add a subtle separator or label
+        separator = tk.Frame(future_features_frame, bg='#3a4466', height=1)
+        separator.pack(fill='x', pady=(10, 0))
+
+        # Placeholder for future features
+        # future_label = tk.Label(future_features_frame, text="[Future Features Area]",
+        #                        font=('Segoe UI', 8), fg='#666666', bg=COLORS['bg_main'])
+        # future_label.pack(pady=20)
 
     def _setup_bindings(self):
         """Setup keyboard bindings."""
@@ -229,7 +238,8 @@ class BlackjackTrackerApp(tk.Tk):
 
     def _simple_set_focus(self):
         """ENHANCED: Set focus with proper phase management for panels."""
-        print(f"SIMPLE_FOCUS: Current focus_idx={self.game_state._focus_idx}, play_phase={self.game_state.is_play_phase()}")
+        print(
+            f"SIMPLE_FOCUS: Current focus_idx={self.game_state._focus_idx}, play_phase={self.game_state.is_play_phase()}")
 
         # Reset all panels
         for seat, panel in self.game_state.seat_hands.items():

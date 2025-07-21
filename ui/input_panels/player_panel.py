@@ -36,7 +36,7 @@ class PlayerPanel(BaseCardPanel):
             font=('Segoe UI', 10, 'bold'),
             bg=panel_color, fg=COLORS['fg_white']
         )
-        self.label.pack(pady=2)
+        self.label.pack(anchor='w', padx=2, pady=(2, 0))  # align to left edge
 
         # Status display
         self.status_label = tk.Label(

@@ -10,14 +10,14 @@ from .suit_selection import get_suit_selection
 
 
 class PlayerPanel(BaseCardPanel):
-    """Player panel with unified actions and split support."""
+    """Player panel with unified actions and split support - UPDATED with Reset button."""
 
     def __init__(self, parent, on_card, on_undo, on_action=None, on_global_undo=None, undo_manager=None):
         super().__init__(parent, "PLAYER", is_player=True, is_dealer=False,
                          on_card=on_card, on_undo=on_undo)
         self.on_action = on_action
-        self.on_global_undo = on_global_undo  # <-- Assign here
-        self.undo_manager = undo_manager  # <-- Assign here
+        self.on_global_undo = on_global_undo
+        self.undo_manager = undo_manager
         self._build_player_ui()
 
     def _build_player_ui(self):
@@ -60,34 +60,33 @@ class PlayerPanel(BaseCardPanel):
     def _build_input_row(self):
         """Build rank input buttons and score display - LEFT-ALIGNED with minimal spacing."""
         bottom_frame = tk.Frame(self, bg=COLORS['fg_player'])
-        bottom_frame.pack(fill='x', pady=2)  # Reduced padding
+        bottom_frame.pack(fill='x', pady=2)
 
         # Rank buttons - LEFT-ALIGNED with MINIMAL SPACING
         btn_row = tk.Frame(bottom_frame, bg=COLORS['fg_player'])
-        btn_row.pack(side=tk.LEFT, anchor='w', padx=0)  # LEFT-ALIGNED, no left padding
+        btn_row.pack(side=tk.LEFT, anchor='w', padx=0)
 
         self.rank_btns = []
         for ri, r in enumerate(RANKS):
             display_rank = normalize_rank_display(r)
             b = tk.Button(
                 btn_row, text=display_rank,
-                width=1 if r != '10' else 2,  # Keep same width logic
-                height=1,  # Explicit small height
-                font=('Segoe UI', 7),  # Smaller font
-                bd=1,  # Minimal border
+                width=1 if r != '10' else 2,
+                height=1,
+                font=('Segoe UI', 7),
+                bd=1,
                 command=lambda rank=r: self.rank_clicked(rank)
             )
-            # MINIMAL HORIZONTAL SPACING - 2px between buttons
             b.grid(row=0, column=ri, padx=(0 if ri == 0 else 2, 0), pady=0, ipadx=0, ipady=0, sticky='w')
             self.rank_btns.append(b)
 
         # GLOBAL UNDO button - MINIMAL SPACING
         self.undo_btn = tk.Button(
             btn_row, text='U',
-            width=1,  # Keep same width
-            height=1,  # Explicit small height
-            font=('Segoe UI', 7, 'bold'),  # Smaller font
-            bd=1,  # Minimal border
+            width=1,
+            height=1,
+            font=('Segoe UI', 7, 'bold'),
+            bd=1,
             command=self._global_undo
         )
         self.undo_btn.grid(row=0, column=len(RANKS), padx=(2, 0), pady=0, ipadx=0, ipady=0, sticky='w')
@@ -95,21 +94,21 @@ class PlayerPanel(BaseCardPanel):
         # Score display - RIGHT-ALIGNED with more space
         self.score_label = tk.Label(
             bottom_frame, text="",
-            font=('Segoe UI', 9, 'bold'),  # Smaller font
+            font=('Segoe UI', 9, 'bold'),
             bg=COLORS['fg_player'], fg='#ffff00',
-            width=12, anchor='center'  # WIDER for more space
+            width=12, anchor='center'
         )
         self.score_label.pack(side=tk.RIGHT, padx=5)
 
-        # Action buttons directly below rank buttons
+        # UPDATED: Action buttons directly below rank buttons
         action_row = tk.Frame(self, bg=COLORS['fg_player'])
         action_row.pack(anchor='w', pady=(0, 2))
 
         self.stand_skip_btn = tk.Button(
             action_row, text='STAND',
-            width=7,
-            height=1,
-            font=('Segoe UI', 9, 'bold'),
+            width=6,  # UPDATED: Consistent width
+            height=1,  # UPDATED: Consistent height
+            font=('Segoe UI', 9, 'bold'),  # UPDATED: Consistent font
             bg='#ff6666',
             fg='white',
             command=self._handle_stand_skip
@@ -118,17 +117,34 @@ class PlayerPanel(BaseCardPanel):
 
         self.split_btn = tk.Button(
             action_row, text='SPLIT',
-            width=6,
-            height=1,
-            font=('Segoe UI', 9, 'bold'),
+            width=6,  # UPDATED: Consistent width
+            height=1,  # UPDATED: Consistent height
+            font=('Segoe UI', 9, 'bold'),  # UPDATED: Consistent font
             bg='#66ff66',
             fg='black',
             command=lambda: self._action('split')
         )
         self.split_btn.pack(side=tk.LEFT, padx=2)
 
+        # NEW: Reset button - ADDED to the right of Split
+        self.reset_btn = tk.Button(
+            action_row, text='RESET',
+            width=6,  # Consistent width
+            height=1,  # Consistent height
+            font=('Segoe UI', 9, 'bold'),  # Consistent font
+            bg='#ffaa00',  # Orange background for reset
+            fg='white',
+            command=self._handle_reset
+        )
+        self.reset_btn.pack(side=tk.LEFT, padx=2)
+
         # Update button states
         self._update_action_buttons()
+
+    def _handle_reset(self):
+        """NEW: Handle reset button - resets the player panel."""
+        print("PLAYER: Reset clicked - resetting player panel")
+        self.reset()
 
     def create_card_widget(self, rank, suit, parent):
         """Create a graphic playing card widget that looks like a real card."""
@@ -346,7 +362,7 @@ class PlayerPanel(BaseCardPanel):
             self.status_label.config(text="")
 
     def _update_action_buttons(self):
-        """Update action button states based on game state."""
+        """UPDATED: Update action button states based on game state."""
         # Stand/Skip button is always enabled unless completely done
         disabled = self.is_done or self.is_busted or self.is_surrendered
         stand_state = tk.DISABLED if disabled else tk.NORMAL
@@ -354,13 +370,17 @@ class PlayerPanel(BaseCardPanel):
 
         # Split button: only enabled when split is possible and not pending split dealing
         split_enabled = (self.can_split() and
-                        not disabled and
-                        not self.pending_split and
-                        self.play_phase)  # Only allow splits during play phase
+                         not disabled and
+                         not getattr(self, 'pending_split', False) and
+                         getattr(self, 'play_phase', True))  # Only allow splits during play phase
         split_state = tk.NORMAL if split_enabled else tk.DISABLED
         self.split_btn.config(state=split_state)
 
-        print(f"PLAYER: Button states - Stand/Skip: {stand_state}, Split: {split_state}")
+        # NEW: Reset button is always enabled (unless completely disabled panel)
+        reset_state = tk.NORMAL  # Always allow reset
+        self.reset_btn.config(state=reset_state)
+
+        print(f"PLAYER: Button states - Stand/Skip: {stand_state}, Split: {split_state}, Reset: {reset_state}")
 
     def can_split(self, hand_idx=None):
         """Check if hand can be split."""
@@ -433,12 +453,14 @@ class PlayerPanel(BaseCardPanel):
         for btn in self.rank_btns:
             btn.config(state=state)
         self.undo_btn.config(state=state)
-        # Action buttons are managed by _update_action_buttons()
+
+        # Action buttons are managed by _update_action_buttons() when enabled
         if enabled:
             self._update_action_buttons()
         else:
             self.stand_skip_btn.config(state=tk.DISABLED)
             self.split_btn.config(state=tk.DISABLED)
+            self.reset_btn.config(state=tk.DISABLED)  # NEW: Disable reset when panel disabled
 
     def reset(self):
         """Reset player panel."""

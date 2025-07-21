@@ -121,7 +121,8 @@ class BlackjackTrackerApp(tk.Tk):
         )
         self.game_state.shared_input_panel.set_action_callbacks(
             on_stand=self.handle_shared_stand,
-            on_split=self.handle_shared_split
+            on_split=self.handle_shared_split,
+            on_reset_active_seat=self.handle_reset_active_seat  # NEW: Add reset callback
         )
         self.game_state.shared_input_panel.pack(expand=True, fill='both', padx=0, pady=0)
 
@@ -677,6 +678,50 @@ class BlackjackTrackerApp(tk.Tk):
             player_panel.is_done = True
             player_panel.update_display()
             self.advance_play_focus()
+
+    def handle_reset_active_seat(self):
+        """Reset only the currently active seat that has auto-focus."""
+        try:
+            print("HANDLE_RESET_ACTIVE_SEAT: Called")
+
+            if not self.game_state._auto_focus:
+                print("HANDLE_RESET_ACTIVE_SEAT: Manual mode - no active seat to reset")
+                return
+
+            if not self.game_state.is_play_phase():
+                print("HANDLE_RESET_ACTIVE_SEAT: Not in play phase - no active seat to reset")
+                return
+
+            # Get the currently focused seat
+            order = list(reversed(self.game_state._active_seats))
+            if self.game_state._focus_idx >= len(order):
+                print("HANDLE_RESET_ACTIVE_SEAT: Focus is on dealer - no seat to reset")
+                return
+
+            current_seat = order[self.game_state._focus_idx]
+
+            if current_seat == self.game_state.seat:
+                print("HANDLE_RESET_ACTIVE_SEAT: Current focus is player - use player reset button instead")
+                return
+
+            if current_seat not in self.game_state.seat_hands:
+                print(f"HANDLE_RESET_ACTIVE_SEAT: Seat {current_seat} not found in seat_hands")
+                return
+
+            # Reset the specific seat
+            seat_panel = self.game_state.seat_hands[current_seat]
+            print(f"HANDLE_RESET_ACTIVE_SEAT: Resetting seat {current_seat}")
+            seat_panel.reset()
+
+            # Refresh focus to ensure proper UI state
+            self.set_focus()
+
+            print(f"HANDLE_RESET_ACTIVE_SEAT: Successfully reset seat {current_seat}")
+
+        except Exception as e:
+            print(f"ERROR in handle_reset_active_seat: {e}")
+            import traceback
+            traceback.print_exc()
 
     def on_player_undo(self, rank=None, is_hole=False):
         """Handle player undo with panel height synchronization."""

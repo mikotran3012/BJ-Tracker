@@ -1,6 +1,6 @@
 """
 IMPROVED seat panel - SMALLER but still clear, optimized for space.
-Extracted from panels.py for better organization.
+UPDATED with split limitation logic.
 """
 
 import tkinter as tk
@@ -9,7 +9,7 @@ from .card_graphics import create_seat_card_widget
 
 
 class SeatHandPanel(tk.Frame):
-    """FIXED seat panel with proper split hand management."""
+    """UPDATED seat panel with proper split hand management and split limitation."""
 
     def __init__(self, parent, seat, is_player=False, is_your_seat=False, on_action=None):
         super().__init__(parent, bg=COLORS['bg_panel'], width=90, height=110)
@@ -18,17 +18,22 @@ class SeatHandPanel(tk.Frame):
         self.is_your_seat = is_your_seat
         self.on_action = on_action
 
-        # FIXED: Initialize split tracking properly
+        # Initialize split tracking properly
         self.hands = [[]]  # List of hands (for splits)
         self.current_hand = 0  # Index of currently active hand
         self.is_busted = False
         self.is_surrendered = False
         self.is_done = False
+
         # When a split occurs we temporarily deal a second card to each
         # new hand before normal play resumes.  These helpers track that
         # state so the next card inputs go to the correct hand.
         self.pending_split = False  # True while waiting for second cards
         self.pending_index = 0  # Which split hand needs the next card
+
+        # NEW: Track which hands have been split to limit splitting to once per hand
+        self.split_history = set()
+
         self.pack_propagate(False)
         self._build_panel()
 
@@ -111,13 +116,18 @@ class SeatHandPanel(tk.Frame):
         if self.on_action:
             self.on_action(self.seat, action, self.current_hand)
 
-    # FIXED: Split hand management methods
+    # Split hand management methods
     def can_split(self, hand_idx=None):
-        """Check if current hand can be split."""
+        """UPDATED: Check if current hand can be split - LIMITED to once per hand."""
         if hand_idx is None:
             hand_idx = self.current_hand
 
         if hand_idx >= len(self.hands):
+            return False
+
+        # NEW: Check if this hand has already been split
+        if hand_idx in self.split_history:
+            print(f"SEAT {self.seat}: Cannot split hand {hand_idx} - already split once")
             return False
 
         hand = self.hands[hand_idx]
@@ -132,22 +142,27 @@ class SeatHandPanel(tk.Frame):
         return val1 == val2
 
     def split_hand(self):
-        """FIXED: Split the current hand into two hands."""
+        """UPDATED: Split the current hand into two hands - with split limitation tracking."""
         if not self.can_split():
             print(f"SPLIT: Cannot split {self.seat} - conditions not met")
             return False
 
-        current = self.hands[self.current_hand]
+        current_hand_idx = self.current_hand
+        current = self.hands[current_hand_idx]
         if len(current) != 2:
             print(f"SPLIT: Cannot split {self.seat} - need exactly 2 cards")
             return False
 
-        print(f"SPLIT: Splitting {self.seat} hand with {current}")
+        print(f"SPLIT: Splitting {self.seat} hand {current_hand_idx} with {current}")
 
         # Create second hand with second card
         second_card = current.pop()
         new_hand = [second_card]
         self.hands.append(new_hand)
+
+        # NEW: Mark this hand as having been split (prevent future splits)
+        self.split_history.add(current_hand_idx)
+        print(f"SPLIT: Added hand {current_hand_idx} to {self.seat} split history: {self.split_history}")
 
         print(f"SPLIT: {self.seat} now has hands: {self.hands}")
 
@@ -209,7 +224,7 @@ class SeatHandPanel(tk.Frame):
         self.update_display()
 
     def is_current_hand_done(self):
-        """FIXED: Check if the current hand is done."""
+        """Check if the current hand is done."""
         if self.is_busted or self.is_surrendered:
             return True
 
@@ -233,7 +248,7 @@ class SeatHandPanel(tk.Frame):
             return False  # all hands finished
 
     def should_advance_focus(self):
-        """FIXED: Determine if focus should advance to next player."""
+        """Determine if focus should advance to next player."""
         # If surrendered, advance
         if self.is_surrendered:
             return True
@@ -253,9 +268,8 @@ class SeatHandPanel(tk.Frame):
 
         return False
 
-    # FIXED: Stand method for split hands
     def stand(self):
-        """FIXED: Mark current hand as done and handle split progression."""
+        """Mark current hand as done and handle split progression."""
         print(f"STAND: {self.seat} standing hand {self.current_hand + 1}")
 
         if len(self.hands) > 1:  # Split hands exist
@@ -332,7 +346,7 @@ class SeatHandPanel(tk.Frame):
             return str(score)
 
     def update_display(self):
-        """FIXED: Update the display with current cards and scores."""
+        """UPDATED: Update the display with current cards and scores."""
         # Clear all existing card widgets
         for hand_widgets in self.card_widgets:
             for widget in hand_widgets:
@@ -361,9 +375,11 @@ class SeatHandPanel(tk.Frame):
 
             # Add hand indicator for splits
             if len(self.hands) > 1:
+                # UPDATED: Show split limitation status
+                split_status = " (No Resplit)" if i in self.split_history else ""
                 hand_label = tk.Label(
                     display_frame,
-                    text=f"H{i + 1}" + (" ←" if i == self.current_hand else ""),
+                    text=f"H{i + 1}" + (" ←" if i == self.current_hand else "") + split_status,
                     font=('Segoe UI', 6, 'bold'),
                     bg=COLORS['bg_panel'],
                     fg='#ffff00' if i == self.current_hand else '#888888'
@@ -418,7 +434,7 @@ class SeatHandPanel(tk.Frame):
         return card
 
     def reset(self):
-        """Clear all cards and reset state."""
+        """UPDATED: Clear all cards and reset state - clear split history."""
         print(f"RESET: Resetting {self.seat}")
 
         # Clear all card widgets first
@@ -436,6 +452,10 @@ class SeatHandPanel(tk.Frame):
         self.is_surrendered = False
         self.is_done = False
         self.card_widgets = [[]]
+
+        # NEW: Clear split history on reset
+        self.split_history.clear()
+        print(f"RESET: Cleared split history for {self.seat}")
 
         # Reset displays (keep only first one)
         for display in self.displays[1:]:

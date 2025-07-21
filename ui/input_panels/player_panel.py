@@ -10,7 +10,7 @@ from .suit_selection import get_suit_selection
 
 
 class PlayerPanel(BaseCardPanel):
-    """Player panel with unified actions and split support - UPDATED with Reset button."""
+    """Player panel with unified actions and split support - UPDATED with split limitation."""
 
     def __init__(self, parent, on_card, on_undo, on_action=None, on_global_undo=None, undo_manager=None):
         super().__init__(parent, "PLAYER", is_player=True, is_dealer=False,
@@ -18,6 +18,10 @@ class PlayerPanel(BaseCardPanel):
         self.on_action = on_action
         self.on_global_undo = on_global_undo
         self.undo_manager = undo_manager
+
+        # NEW: Track which hands have been split to limit splitting to once per hand
+        self.split_history = set()
+
         self._build_player_ui()
 
     def _build_player_ui(self):
@@ -32,7 +36,7 @@ class PlayerPanel(BaseCardPanel):
             font=('Segoe UI', 10, 'bold'),
             bg=panel_color, fg=COLORS['fg_white']
         )
-        self.label.pack(anchor='w', padx=2, pady=(2, 0))  # align to left edge
+        self.label.pack(pady=2)
 
         # Status display
         self.status_label = tk.Label(
@@ -100,15 +104,15 @@ class PlayerPanel(BaseCardPanel):
         )
         self.score_label.pack(side=tk.RIGHT, padx=5)
 
-        # UPDATED: Action buttons directly below rank buttons
+        # Action buttons directly below rank buttons
         action_row = tk.Frame(self, bg=COLORS['fg_player'])
         action_row.pack(anchor='w', pady=(0, 2))
 
         self.stand_skip_btn = tk.Button(
             action_row, text='STAND',
-            width=6,  # UPDATED: Consistent width
-            height=1,  # UPDATED: Consistent height
-            font=('Segoe UI', 9, 'bold'),  # UPDATED: Consistent font
+            width=6,
+            height=1,
+            font=('Segoe UI', 9, 'bold'),
             bg='#ff6666',
             fg='white',
             command=self._handle_stand_skip
@@ -117,22 +121,22 @@ class PlayerPanel(BaseCardPanel):
 
         self.split_btn = tk.Button(
             action_row, text='SPLIT',
-            width=6,  # UPDATED: Consistent width
-            height=1,  # UPDATED: Consistent height
-            font=('Segoe UI', 9, 'bold'),  # UPDATED: Consistent font
+            width=6,
+            height=1,
+            font=('Segoe UI', 9, 'bold'),
             bg='#66ff66',
             fg='black',
             command=lambda: self._action('split')
         )
         self.split_btn.pack(side=tk.LEFT, padx=2)
 
-        # NEW: Reset button - ADDED to the right of Split
+        # Reset button
         self.reset_btn = tk.Button(
             action_row, text='RESET',
-            width=6,  # Consistent width
-            height=1,  # Consistent height
-            font=('Segoe UI', 9, 'bold'),  # Consistent font
-            bg='#ffaa00',  # Orange background for reset
+            width=6,
+            height=1,
+            font=('Segoe UI', 9, 'bold'),
+            bg='#ffaa00',
             fg='white',
             command=self._handle_reset
         )
@@ -142,7 +146,7 @@ class PlayerPanel(BaseCardPanel):
         self._update_action_buttons()
 
     def _handle_reset(self):
-        """NEW: Handle reset button - resets the player panel."""
+        """Handle reset button - resets the player panel."""
         print("PLAYER: Reset clicked - resetting player panel")
         self.reset()
 
@@ -224,7 +228,7 @@ class PlayerPanel(BaseCardPanel):
 
     def _handle_stand_skip(self):
         """Handle the unified Stand/Skip button - exact same logic as shared input."""
-        if self.play_phase:
+        if getattr(self, 'play_phase', True):
             print("PLAYER: Stand action in play phase")
             self._action('stand')
         else:
@@ -313,18 +317,20 @@ class PlayerPanel(BaseCardPanel):
 
             # Add hand indicator for splits
             if len(self.hands) > 1:
+                # UPDATED: Show split limitation status
+                split_status = " (No Resplit)" if i in self.split_history else ""
                 hand_label = tk.Label(
                     display_frame,
-                    text=f"Hand {i + 1}" + (" ←" if i == self.current_hand else ""),
+                    text=f"Hand {i + 1}" + (" ←" if i == self.current_hand else "") + split_status,
                     font=('Segoe UI', 8, 'bold'),
                     bg=COLORS['fg_player'],
                     fg='#ffff00' if i == self.current_hand else '#cccccc'
                 )
-                hand_label.pack(anchor='w', pady=(0, 2))  # Left-aligned with small bottom padding
+                hand_label.pack(anchor='w', pady=(0, 2))
 
             # Create a container for cards to stack them horizontally
             cards_container = tk.Frame(display_frame, bg=COLORS['fg_player'])
-            cards_container.pack(anchor='w', fill='x')  # Left-aligned, fill width
+            cards_container.pack(anchor='w', fill='x')
 
             # Add cards using graphic card method
             for rank, suit in hand:
@@ -362,7 +368,7 @@ class PlayerPanel(BaseCardPanel):
             self.status_label.config(text="")
 
     def _update_action_buttons(self):
-        """UPDATED: Update action button states based on game state."""
+        """Update action button states based on game state."""
         # Stand/Skip button is always enabled unless completely done
         disabled = self.is_done or self.is_busted or self.is_surrendered
         stand_state = tk.DISABLED if disabled else tk.NORMAL
@@ -372,21 +378,26 @@ class PlayerPanel(BaseCardPanel):
         split_enabled = (self.can_split() and
                          not disabled and
                          not getattr(self, 'pending_split', False) and
-                         getattr(self, 'play_phase', True))  # Only allow splits during play phase
+                         getattr(self, 'play_phase', True))
         split_state = tk.NORMAL if split_enabled else tk.DISABLED
         self.split_btn.config(state=split_state)
 
-        # NEW: Reset button is always enabled (unless completely disabled panel)
-        reset_state = tk.NORMAL  # Always allow reset
+        # Reset button is always enabled
+        reset_state = tk.NORMAL
         self.reset_btn.config(state=reset_state)
 
         print(f"PLAYER: Button states - Stand/Skip: {stand_state}, Split: {split_state}, Reset: {reset_state}")
 
     def can_split(self, hand_idx=None):
-        """Check if hand can be split."""
+        """UPDATED: Check if hand can be split - LIMITED to once per hand."""
         if hand_idx is None:
             hand_idx = self.current_hand
         if hand_idx >= len(self.hands):
+            return False
+
+        # NEW: Check if this hand has already been split
+        if hand_idx in self.split_history:
+            print(f"PLAYER: Cannot split hand {hand_idx} - already split once")
             return False
 
         hand = self.hands[hand_idx]
@@ -401,18 +412,25 @@ class PlayerPanel(BaseCardPanel):
         return val1 == val2
 
     def split_hand(self):
-        """Split current hand."""
+        """UPDATED: Split current hand - with split limitation tracking."""
         if not self.can_split():
             return False
 
-        current = self.hands[self.current_hand]
+        current_hand_idx = self.current_hand
+        current = self.hands[current_hand_idx]
         if len(current) != 2:
             return False
+
+        print(f"PLAYER: Splitting hand {current_hand_idx} with cards {current}")
 
         # Create second hand and prepare to deal a second card to each
         second_card = current.pop()
         new_hand = [second_card]
         self.hands.append(new_hand)
+
+        # NEW: Mark this hand as having been split (prevent future splits)
+        self.split_history.add(current_hand_idx)
+        print(f"PLAYER: Added hand {current_hand_idx} to split history: {self.split_history}")
 
         # Show new hand display and flag that the next card inputs
         # should go to each hand in order.
@@ -460,11 +478,14 @@ class PlayerPanel(BaseCardPanel):
         else:
             self.stand_skip_btn.config(state=tk.DISABLED)
             self.split_btn.config(state=tk.DISABLED)
-            self.reset_btn.config(state=tk.DISABLED)  # NEW: Disable reset when panel disabled
+            self.reset_btn.config(state=tk.DISABLED)
 
     def reset(self):
-        """Reset player panel."""
+        """UPDATED: Reset player panel - clear split history."""
         super().reset()
         self.pending_split = False
         self.pending_index = 0
+        # NEW: Clear split history on reset
+        self.split_history.clear()
+        print("PLAYER: Cleared split history on reset")
         self.update_display()

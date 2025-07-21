@@ -776,6 +776,14 @@ class BlackjackTrackerApp(tk.Tk):
             # Sync counting systems after undo
             self._sync_counting_systems()
 
+            # If the undone panel was previously marked done, reactivate it
+            if result and result.get("panel") and result.get("was_done"):
+                panel = result["panel"]
+                panel.is_done = False
+                if hasattr(panel, "update_display"):
+                    panel.update_display()
+                self.set_focus()
+
             # SYNCHRONIZE PANEL HEIGHTS AFTER UNDO
             self.after_idle(self._synchronize_panel_heights)
 

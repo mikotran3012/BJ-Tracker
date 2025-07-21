@@ -59,7 +59,7 @@ class UndoManager:
         if len(self.undo_stack) > self.max_undo_history:
             self.undo_stack.pop(0)
 
-    def handle_shared_undo(self):
+    def handle_shared_undo(self, was_done=None):
         """Undo the last recorded action and restore focus."""
         if not self.undo_stack:
             return
@@ -89,7 +89,7 @@ class UndoManager:
             ):
                 # Not allowed; push state back and abort
                 self.undo_stack.append(state)
-                return
+                return None
 
             # Remove card from the specific hand
             hand_idx = state.get("hand_idx", 0)
@@ -121,6 +121,7 @@ class UndoManager:
             self.app.focus_manager.set_focus()
         else:
             self.app.set_focus()
+        return {"panel": panel, "was_done": was_done}
 
     def _jump_to_previous_in_focus_order(self):
         '''Basic focus step back.'''

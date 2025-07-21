@@ -411,6 +411,8 @@ class SeatHandPanel(tk.Frame):
 
         card = self.hands[hand_idx].pop()
         self.is_busted = False  # Reset bust status
+        # Reactivate hand if an undone card existed
+        self.is_done = False
         self.update_display()
         return card
 

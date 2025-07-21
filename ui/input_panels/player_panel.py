@@ -416,6 +416,17 @@ class PlayerPanel(BaseCardPanel):
         self.is_done = True
         self.update_display()
 
+    def undo(self, hand_idx=None):
+        """Undo last card and reactivate hand if needed."""
+        card = super().undo(hand_idx)
+        if card is not None:
+            # Re-check completion status after card removal
+            score = self.calculate_score(hand_idx if hand_idx is not None else self.current_hand)
+            if self.is_done and not self.is_surrendered and score < 21:
+                self.is_done = False
+                self.update_display()
+        return card
+
     def set_enabled(self, enabled):
         """Enable/disable player controls."""
         state = tk.NORMAL if enabled else tk.DISABLED

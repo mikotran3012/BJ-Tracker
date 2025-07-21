@@ -75,6 +75,8 @@ class BaseCardPanel(tk.Frame):
         if self.hands[hand_idx]:
             last_card = self.hands[hand_idx].pop()
             self.is_busted = False
+            # If a previously completed hand is being undone, reactivate it
+            self.is_done = False
             self.on_undo(rank=last_card[0], is_hole=False)
 
             if hasattr(self, 'update_display'):

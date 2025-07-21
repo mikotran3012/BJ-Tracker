@@ -55,14 +55,13 @@ class DealerPanel(BaseCardPanel):
         )
         self.status_label.pack()
 
-        # UPDATED: Card display area with vertical centering
+        # UPDATED: Card display area with left-aligned, vertically centered layout
         self.display_frame = tk.Frame(self, bg=panel_color)
         self.display_frame.pack(fill='both', expand=True, padx=4, pady=4)
 
-        # UPDATED: Container for vertical centering of cards
+        # UPDATED: Container for left-aligned, vertically centered cards
         self.card_center_container = tk.Frame(self.display_frame, bg=panel_color)
-        self.card_center_container.pack(expand=True, anchor='center')
-
+        self.card_center_container.pack(anchor='w', expand=True)  # Left-aligned, vertically centered
 
         self._add_hand_display()
 
@@ -70,9 +69,9 @@ class DealerPanel(BaseCardPanel):
         self._build_input_row_dealer()
 
     def _add_hand_display(self):
-        """Add hand display for dealer with vertical centering."""
+        """Add hand display for dealer with left-aligned, vertically centered layout."""
         hand_frame = tk.Frame(self.card_center_container, bg=COLORS['fg_dealer'])
-        hand_frame.pack(expand=True, anchor='center')  # Centered within the container
+        hand_frame.pack(anchor='w', expand=True)  # Left-aligned, vertically centered
         self.displays.append(hand_frame)
         self.card_widgets.append([])
 

@@ -46,14 +46,13 @@ class PlayerPanel(BaseCardPanel):
         )
         self.status_label.pack()
 
-        # UPDATED: Card display area with vertical centering
+        # UPDATED: Card display area with left-aligned, vertically centered layout
         self.display_frame = tk.Frame(self, bg=panel_color)
         self.display_frame.pack(fill='both', expand=True, padx=4, pady=4)
 
-        # UPDATED: Container for vertical centering of cards
+        # UPDATED: Container for left-aligned, vertically centered cards
         self.card_center_container = tk.Frame(self.display_frame, bg=panel_color)
-        self.card_center_container.pack(expand=True, anchor='center')
-
+        self.card_center_container.pack(anchor='w', expand=True)  # Left-aligned, vertically centered
 
         self._add_hand_display()
 
@@ -61,9 +60,9 @@ class PlayerPanel(BaseCardPanel):
         self._build_input_row()
 
     def _add_hand_display(self):
-        """Add hand display for player with vertical centering."""
+        """Add hand display for player with left-aligned, vertically centered layout."""
         hand_frame = tk.Frame(self.card_center_container, bg=COLORS['fg_player'])
-        hand_frame.pack(expand=True, anchor='center', pady=1)  # Centered within the container
+        hand_frame.pack(anchor='w', expand=True, pady=1)  # Left-aligned, vertically centered
         self.displays.append(hand_frame)
         self.card_widgets.append([])
 
@@ -352,8 +351,7 @@ class PlayerPanel(BaseCardPanel):
 
             # Create a container for cards to stack them horizontally
             cards_container = tk.Frame(display_frame, bg=COLORS['fg_player'])
-            cards_container.pack(anchor='center' if len(self.hands) == 1 else 'w',
-                                 fill='x')  # Center single hand, left-align splits
+            cards_container.pack(anchor='w', fill='x')  # Left-aligned for all cases
 
             # UPDATED: Add cards using dynamic scaling
             for rank, suit in hand:

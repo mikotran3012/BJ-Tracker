@@ -10,7 +10,7 @@ from .suit_selection import get_suit_selection
 
 
 class PlayerPanel(BaseCardPanel):
-    """Player panel with unified actions and split support - UPDATED with split limitation."""
+    """Player panel with unified actions and UPDATED dynamic card scaling based on splits."""
 
     def __init__(self, parent, on_card, on_undo, on_action=None, on_global_undo=None, undo_manager=None):
         super().__init__(parent, "PLAYER", is_player=True, is_dealer=False,
@@ -19,13 +19,13 @@ class PlayerPanel(BaseCardPanel):
         self.on_global_undo = on_global_undo
         self.undo_manager = undo_manager
 
-        # NEW: Track which hands have been split to limit splitting to once per hand
+        # Track which hands have been split to limit splitting to once per hand
         self.split_history = set()
 
         self._build_player_ui()
 
     def _build_player_ui(self):
-        """Build player-specific UI."""
+        """Build player-specific UI with UPDATED card display sizing."""
         # Panel background
         panel_color = COLORS['fg_player']
         self.configure(bg=panel_color)
@@ -36,7 +36,7 @@ class PlayerPanel(BaseCardPanel):
             font=('Segoe UI', 10, 'bold'),
             bg=panel_color, fg=COLORS['fg_white']
         )
-        self.label.pack(anchor='w', padx=2, pady=(2, 0))  # align to left edge
+        self.label.pack(pady=2)
 
         # Status display
         self.status_label = tk.Label(
@@ -46,18 +46,24 @@ class PlayerPanel(BaseCardPanel):
         )
         self.status_label.pack()
 
-        # Card display area
+        # UPDATED: Card display area with vertical centering
         self.display_frame = tk.Frame(self, bg=panel_color)
         self.display_frame.pack(fill='both', expand=True, padx=4, pady=4)
+
+        # UPDATED: Container for vertical centering of cards
+        self.card_center_container = tk.Frame(self.display_frame, bg=panel_color)
+        self.card_center_container.pack(expand=True, anchor='center')
+
+
         self._add_hand_display()
 
         # Input buttons, score, and action buttons
         self._build_input_row()
 
     def _add_hand_display(self):
-        """Add hand display for player."""
-        hand_frame = tk.Frame(self.display_frame, bg=COLORS['fg_player'])
-        hand_frame.pack(fill='both', expand=True, pady=1)
+        """Add hand display for player with vertical centering."""
+        hand_frame = tk.Frame(self.card_center_container, bg=COLORS['fg_player'])
+        hand_frame.pack(expand=True, anchor='center', pady=1)  # Centered within the container
         self.displays.append(hand_frame)
         self.card_widgets.append([])
 
@@ -150,11 +156,15 @@ class PlayerPanel(BaseCardPanel):
         print("PLAYER: Reset clicked - resetting player panel")
         self.reset()
 
-    def create_card_widget(self, rank, suit, parent):
-        """Create a graphic playing card widget that looks like a real card."""
-        # Card dimensions
-        card_width = 45
-        card_height = 65
+    def create_card_widget(self, rank, suit, parent, size_scale=1.0):
+        """UPDATED: Create player card widget with dynamic scaling based on splits."""
+        # UPDATED: Base dimensions
+        base_width = 45
+        base_height = 65
+
+        # Apply scaling
+        card_width = int(base_width * size_scale)
+        card_height = int(base_height * size_scale)
 
         # Create main card frame with white background and black border
         card_frame = tk.Frame(parent,
@@ -164,7 +174,10 @@ class PlayerPanel(BaseCardPanel):
                               width=card_width,
                               height=card_height)
         card_frame.pack_propagate(False)  # Maintain fixed size
-        card_frame.pack(side=tk.LEFT, padx=1, pady=1)  # Minimal spacing between cards
+
+        # UPDATED: Spacing based on card size
+        spacing = max(1, int(2 * size_scale))
+        card_frame.pack(side=tk.LEFT, padx=spacing, pady=spacing)
 
         # Determine suit color and symbol
         suit_colors = {'♠': 'black', '♣': 'black', '♥': 'red', '♦': 'red'}
@@ -176,35 +189,39 @@ class PlayerPanel(BaseCardPanel):
         # Display rank (handle 10 specially)
         display_rank = '10' if rank in ['T', '10'] else rank
 
+        # UPDATED: Scaled font sizes
+        corner_font_size = max(4, int(6 * size_scale))
+        center_font_size = max(8, int(12 * size_scale))
+
+        if rank in ['J', 'Q', 'K']:
+            center_font_size = max(10, int(14 * size_scale))
+        elif rank == 'A':
+            center_font_size = max(14, int(20 * size_scale))
+
         # Top-left corner: rank and suit
         top_left = tk.Label(card_frame,
                             text=f"{display_rank}\n{suit_symbol}",
-                            font=('Arial', 6, 'bold'),
+                            font=('Arial', corner_font_size, 'bold'),
                             fg=suit_color,
                             bg='white',
                             justify=tk.LEFT)
-        top_left.place(x=2, y=2)
+        corner_x = max(1, int(2 * size_scale))
+        corner_y = max(1, int(2 * size_scale))
+        top_left.place(x=corner_x, y=corner_y)
 
         # Center: Large suit symbol(s)
         if rank in ['J', 'Q', 'K']:
-            # Face cards: show rank in center
             center_text = rank
-            center_font = ('Arial', 14, 'bold')
         elif rank == 'A':
-            # Ace: large suit symbol
             center_text = suit_symbol
-            center_font = ('Arial', 20, 'bold')
         elif rank in ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'T']:
-            # Number cards: smaller suit symbol
             center_text = suit_symbol
-            center_font = ('Arial', 12, 'bold')
         else:
             center_text = suit_symbol
-            center_font = ('Arial', 12, 'bold')
 
         center_label = tk.Label(card_frame,
                                 text=center_text,
-                                font=center_font,
+                                font=('Arial', center_font_size, 'bold'),
                                 fg=suit_color,
                                 bg='white')
         center_label.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
@@ -212,11 +229,12 @@ class PlayerPanel(BaseCardPanel):
         # Bottom-right corner: rank and suit (upside down)
         bottom_right = tk.Label(card_frame,
                                 text=f"{suit_symbol}\n{display_rank}",
-                                font=('Arial', 6, 'bold'),
+                                font=('Arial', corner_font_size, 'bold'),
                                 fg=suit_color,
                                 bg='white',
                                 justify=tk.RIGHT)
-        bottom_right.place(relx=1, rely=1, anchor=tk.SE, x=-2, y=-2)
+        corner_offset = max(-1, int(-2 * size_scale))
+        bottom_right.place(relx=1, rely=1, anchor=tk.SE, x=corner_offset, y=corner_offset)
 
         return card_frame
 
@@ -289,7 +307,7 @@ class PlayerPanel(BaseCardPanel):
         self.update_display()
 
     def update_display(self):
-        """Update player display with graphic cards - COMPACT STACKING."""
+        """UPDATED: Update player display with dynamic card scaling - COMPACT STACKING."""
         # Clear existing card widgets
         for hand_widgets in self.card_widgets:
             for widget in hand_widgets:
@@ -299,6 +317,10 @@ class PlayerPanel(BaseCardPanel):
                     pass
 
         self.card_widgets = []
+
+        # UPDATED: Determine card scale based on number of hands
+        card_scale = 0.7 if len(self.hands) > 1 else 2.0  # Half-size for splits, double for single
+        print(f"PLAYER: Using card scale {card_scale} for {len(self.hands)} hands")
 
         # Update each hand
         for i, hand in enumerate(self.hands):
@@ -317,7 +339,7 @@ class PlayerPanel(BaseCardPanel):
 
             # Add hand indicator for splits
             if len(self.hands) > 1:
-                # UPDATED: Show split limitation status
+                # Show split limitation status
                 split_status = " (No Resplit)" if i in self.split_history else ""
                 hand_label = tk.Label(
                     display_frame,
@@ -326,15 +348,16 @@ class PlayerPanel(BaseCardPanel):
                     bg=COLORS['fg_player'],
                     fg='#ffff00' if i == self.current_hand else '#cccccc'
                 )
-                hand_label.pack(anchor='w', pady=(0, 2))
+                hand_label.pack(anchor='w', pady=(0, 2))  # Left-aligned with small bottom padding
 
             # Create a container for cards to stack them horizontally
             cards_container = tk.Frame(display_frame, bg=COLORS['fg_player'])
-            cards_container.pack(anchor='w', fill='x')
+            cards_container.pack(anchor='center' if len(self.hands) == 1 else 'w',
+                                 fill='x')  # Center single hand, left-align splits
 
-            # Add cards using graphic card method
+            # UPDATED: Add cards using dynamic scaling
             for rank, suit in hand:
-                card_widget = self.create_card_widget(rank, suit, cards_container)
+                card_widget = self.create_card_widget(rank, suit, cards_container, card_scale)
                 self.card_widgets[i].append(card_widget)
 
         # Update score and status
@@ -389,13 +412,13 @@ class PlayerPanel(BaseCardPanel):
         print(f"PLAYER: Button states - Stand/Skip: {stand_state}, Split: {split_state}, Reset: {reset_state}")
 
     def can_split(self, hand_idx=None):
-        """UPDATED: Check if hand can be split - LIMITED to once per hand."""
+        """Check if hand can be split - LIMITED to once per hand."""
         if hand_idx is None:
             hand_idx = self.current_hand
         if hand_idx >= len(self.hands):
             return False
 
-        # NEW: Check if this hand has already been split
+        # Check if this hand has already been split
         if hand_idx in self.split_history:
             print(f"PLAYER: Cannot split hand {hand_idx} - already split once")
             return False
@@ -412,7 +435,7 @@ class PlayerPanel(BaseCardPanel):
         return val1 == val2
 
     def split_hand(self):
-        """UPDATED: Split current hand - with split limitation tracking."""
+        """Split current hand - with split limitation tracking."""
         if not self.can_split():
             return False
 
@@ -428,7 +451,7 @@ class PlayerPanel(BaseCardPanel):
         new_hand = [second_card]
         self.hands.append(new_hand)
 
-        # NEW: Mark this hand as having been split (prevent future splits)
+        # Mark this hand as having been split (prevent future splits)
         self.split_history.add(current_hand_idx)
         print(f"PLAYER: Added hand {current_hand_idx} to split history: {self.split_history}")
 
@@ -481,11 +504,11 @@ class PlayerPanel(BaseCardPanel):
             self.reset_btn.config(state=tk.DISABLED)
 
     def reset(self):
-        """UPDATED: Reset player panel - clear split history."""
+        """Reset player panel - clear split history."""
         super().reset()
         self.pending_split = False
         self.pending_index = 0
-        # NEW: Clear split history on reset
+        # Clear split history on reset
         self.split_history.clear()
         print("PLAYER: Cleared split history on reset")
         self.update_display()

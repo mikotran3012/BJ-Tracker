@@ -62,15 +62,14 @@ class PlayerPanel(BaseCardPanel):
 
     def _add_hand_display(self):
         """Add container for a hand with stacked cards."""
-        hand_container = tk.Frame(self.card_center_container, bg=COLORS['fg_player'])
-        hand_container.pack(anchor='w', pady=10)
-
-        card_area = tk.Frame(hand_container, bg=COLORS['fg_player'])
-        card_area.pack()
-
+        hand_container = tk.Frame(self.card_center_container, bg=COLORS['fg_player'], height=80)
+        hand_container.pack(anchor='w', pady=(10, 0), fill='x')
         label = tk.Label(hand_container, text="", font=('Segoe UI', 8, 'bold'),
                          bg=COLORS['fg_player'], fg='#cccccc')
-        label.pack(side='bottom')
+        label.pack(side='top', anchor='w', padx=2, pady=(0, 2))
+
+        card_area = tk.Frame(hand_container, bg=COLORS['fg_player'], height=80)
+        card_area.pack(anchor='w', pady=0)
 
         self.displays.append(card_area)
         self.hand_labels.append(label)

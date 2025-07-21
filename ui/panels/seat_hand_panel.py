@@ -1,15 +1,14 @@
 """
-IMPROVED seat panel - SMALLER but still clear, optimized for space.
-UPDATED with split limitation logic.
+IMPROVED seat panel with stacked card display.
+UPDATED with split limitation logic and stacked card rendering.
 """
 
 import tkinter as tk
 from constants import RANKS, COLORS, normalize_rank_display, normalize_rank_internal
-from .card_graphics import create_seat_card_widget
 
 
 class SeatHandPanel(tk.Frame):
-    """UPDATED seat panel with proper split hand management and split limitation."""
+    """UPDATED seat panel with stacked card management and split limitation."""
 
     def __init__(self, parent, seat, is_player=False, is_your_seat=False, on_action=None):
         super().__init__(parent, bg=COLORS['bg_panel'], width=90, height=110)
@@ -31,14 +30,14 @@ class SeatHandPanel(tk.Frame):
         self.pending_split = False  # True while waiting for second cards
         self.pending_index = 0  # Which split hand needs the next card
 
-        # NEW: Track which hands have been split to limit splitting to once per hand
+        # Track which hands have been split to limit splitting to once per hand
         self.split_history = set()
 
         self.pack_propagate(False)
         self._build_panel()
 
     def _build_panel(self):
-        """Build the improved seat display with SMALLER but clear layout."""
+        """Build the improved seat display with stacked card layout."""
         # Seat label with background color coding
         seat_color = self._get_background_color()
         seat_frame = tk.Frame(self, bg=seat_color, height=20)
@@ -72,7 +71,7 @@ class SeatHandPanel(tk.Frame):
         )
         self.status_label.pack()
 
-        # Card display area
+        # UPDATED: Card display area with stacked card support
         self.display_frame = tk.Frame(self, bg=COLORS['bg_panel'], height=60)
         self.display_frame.pack(fill='x', expand=True, pady=1)
         self.display_frame.pack_propagate(False)
@@ -102,14 +101,56 @@ class SeatHandPanel(tk.Frame):
             return COLORS['bg_normal_seat']
 
     def _add_hand_display(self):
-        """Add a hand display area for card graphics."""
-        hand_frame = tk.Frame(
+        """Add a hand display area for stacked card graphics."""
+        # UPDATED: Use Canvas for stacked card positioning
+        hand_canvas = tk.Canvas(
             self.display_frame,
-            bg=COLORS['bg_panel']
+            bg=COLORS['bg_panel'],
+            highlightthickness=0,
+            height=50  # Compact height for seat panels
         )
-        hand_frame.pack(fill='both', expand=True, pady=1)
-        self.displays.append(hand_frame)
+        hand_canvas.pack(fill='both', expand=True, pady=1)
+        self.displays.append(hand_canvas)
         self.card_widgets.append([])
+
+    def create_stacked_seat_card_widget(self, rank, suit, canvas, x_offset):
+        """UPDATED: Create a stacked card widget optimized for compact seat display."""
+        # COMPACT dimensions for seat panels
+        card_width = 20
+        card_height = 28
+
+        # Determine card color based on suit
+        if suit in ['♥', '♦']:
+            card_color = '#ff4444'  # Red
+        else:
+            card_color = 'black'
+
+        # Display rank (show 10 instead of T)
+        display_rank = normalize_rank_display(rank)
+
+        # Create card frame - COMPACT for seats
+        card_frame = tk.Frame(canvas, bg='white', bd=1, relief=tk.RAISED,
+                              width=card_width, height=card_height)
+        card_frame.pack_propagate(False)
+
+        # UPDATED: Position using canvas for stacking
+        y_position = 5  # Fixed vertical position
+        canvas.create_window(x_offset, y_position, window=card_frame, anchor='nw')
+
+        # Update canvas scroll region
+        canvas.configure(scrollregion=canvas.bbox("all"))
+
+        # Card rank (center) - COMPACT font
+        rank_label = tk.Label(card_frame, text=display_rank, font=('Arial', 5, 'bold'),
+                              fg=card_color, bg='white')
+        rank_label.pack(expand=True)
+
+        # Card suit (bottom) - COMPACT font
+        suit_label = tk.Label(card_frame, text=suit, font=('Arial', 6, 'bold'),
+                              fg=card_color, bg='white')
+        suit_label.pack()
+
+        return card_frame
 
     def _action(self, action):
         """Handle action button clicks."""
@@ -118,14 +159,14 @@ class SeatHandPanel(tk.Frame):
 
     # Split hand management methods
     def can_split(self, hand_idx=None):
-        """UPDATED: Check if current hand can be split - LIMITED to once per hand."""
+        """Check if current hand can be split - LIMITED to once per hand."""
         if hand_idx is None:
             hand_idx = self.current_hand
 
         if hand_idx >= len(self.hands):
             return False
 
-        # NEW: Check if this hand has already been split
+        # Check if this hand has already been split
         if hand_idx in self.split_history:
             print(f"SEAT {self.seat}: Cannot split hand {hand_idx} - already split once")
             return False
@@ -142,7 +183,7 @@ class SeatHandPanel(tk.Frame):
         return val1 == val2
 
     def split_hand(self):
-        """UPDATED: Split the current hand into two hands - with split limitation tracking."""
+        """Split the current hand into two hands - with split limitation tracking."""
         if not self.can_split():
             print(f"SPLIT: Cannot split {self.seat} - conditions not met")
             return False
@@ -160,7 +201,7 @@ class SeatHandPanel(tk.Frame):
         new_hand = [second_card]
         self.hands.append(new_hand)
 
-        # NEW: Mark this hand as having been split (prevent future splits)
+        # Mark this hand as having been split (prevent future splits)
         self.split_history.add(current_hand_idx)
         print(f"SPLIT: Added hand {current_hand_idx} to {self.seat} split history: {self.split_history}")
 
@@ -182,13 +223,7 @@ class SeatHandPanel(tk.Frame):
         return True
 
     def add_card(self, rank, suit, hand_idx=None):
-        """Add a card to the appropriate hand.
-
-        During a split the dealer immediately gives each new hand a
-        second card.  ``pending_split`` tracks this state so incoming
-        card inputs are routed to each split hand in turn before normal
-        play resumes.
-        """
+        """Add a card to the appropriate hand."""
         if self.pending_split:
             hand_idx = self.pending_index
         elif hand_idx is None:
@@ -346,7 +381,7 @@ class SeatHandPanel(tk.Frame):
             return str(score)
 
     def update_display(self):
-        """UPDATED: Update the display with current cards and scores."""
+        """UPDATED: Update the display with stacked cards and scores."""
         # Clear all existing card widgets
         for hand_widgets in self.card_widgets:
             for widget in hand_widgets:
@@ -358,38 +393,47 @@ class SeatHandPanel(tk.Frame):
         # Reset card widgets tracking
         self.card_widgets = []
 
+        # Stacking parameters for compact seat display
+        stack_offset = 12  # Compact offset for seat cards
+
         # Update each hand display
         for i, hand in enumerate(self.hands):
             if i >= len(self.displays):
                 self._add_hand_display()
 
-            display_frame = self.displays[i]
+            canvas = self.displays[i]
             self.card_widgets.append([])
 
-            # Clear the display frame
-            for widget in display_frame.winfo_children():
-                try:
-                    widget.destroy()
-                except:
-                    pass
+            # Clear the canvas
+            canvas.delete("all")
 
             # Add hand indicator for splits
             if len(self.hands) > 1:
-                # UPDATED: Show split limitation status
+                # Show split limitation status
                 split_status = " (No Resplit)" if i in self.split_history else ""
-                hand_label = tk.Label(
-                    display_frame,
-                    text=f"H{i + 1}" + (" ←" if i == self.current_hand else "") + split_status,
-                    font=('Segoe UI', 6, 'bold'),
-                    bg=COLORS['bg_panel'],
-                    fg='#ffff00' if i == self.current_hand else '#888888'
-                )
-                hand_label.pack()
+                hand_text = f"H{i + 1}" + (" ←" if i == self.current_hand else "") + split_status
 
-            # Add cards for this hand
-            for rank, suit in hand:
-                card_widget = create_seat_card_widget(rank, suit, display_frame)
+                # Create compact hand label on canvas
+                canvas.create_text(2, 2, text=hand_text,
+                                   font=('Segoe UI', 5, 'bold'),
+                                   fill='#ffff00' if i == self.current_hand else '#888888',
+                                   anchor='nw')
+
+            # Position cards with stacking
+            current_x = 5
+            y_offset = 15 if len(self.hands) > 1 else 5  # Lower position for split hands with labels
+
+            for card_idx, (rank, suit) in enumerate(hand):
+                card_widget = self.create_stacked_seat_card_widget(rank, suit, canvas, current_x)
                 self.card_widgets[i].append(card_widget)
+                current_x += stack_offset
+
+            # Update canvas dimensions for compact display
+            total_width = current_x + 20 if hand else 60
+            canvas_height = 35 + y_offset
+
+            canvas.configure(width=min(total_width, 85))  # Keep within seat panel width
+            canvas.configure(height=canvas_height)
 
         # Update score display (show current hand score)
         if len(self.hands) > 1:
@@ -434,7 +478,7 @@ class SeatHandPanel(tk.Frame):
         return card
 
     def reset(self):
-        """UPDATED: Clear all cards and reset state - clear split history."""
+        """Clear all cards and reset state - clear split history."""
         print(f"RESET: Resetting {self.seat}")
 
         # Clear all card widgets first
@@ -453,7 +497,7 @@ class SeatHandPanel(tk.Frame):
         self.is_done = False
         self.card_widgets = [[]]
 
-        # NEW: Clear split history on reset
+        # Clear split history on reset
         self.split_history.clear()
         print(f"RESET: Cleared split history for {self.seat}")
 

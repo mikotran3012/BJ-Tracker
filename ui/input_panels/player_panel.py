@@ -10,7 +10,7 @@ from .suit_selection import get_suit_selection
 
 
 class PlayerPanel(BaseCardPanel):
-    """Player panel with unified actions and UPDATED dynamic card scaling based on splits."""
+    """Player panel with unified actions and UPDATED stacked card display."""
 
     def __init__(self, parent, on_card, on_undo, on_action=None, on_global_undo=None, undo_manager=None):
         super().__init__(parent, "PLAYER", is_player=True, is_dealer=False,
@@ -25,7 +25,7 @@ class PlayerPanel(BaseCardPanel):
         self._build_player_ui()
 
     def _build_player_ui(self):
-        """Build player-specific UI with UPDATED card display sizing."""
+        """Build player-specific UI with UPDATED stacked card display."""
         # Panel background
         panel_color = COLORS['fg_player']
         self.configure(bg=panel_color)
@@ -46,13 +46,13 @@ class PlayerPanel(BaseCardPanel):
         )
         self.status_label.pack()
 
-        # UPDATED: Card display area with left-aligned, vertically centered layout
+        # UPDATED: Card display area with stacked card support
         self.display_frame = tk.Frame(self, bg=panel_color)
         self.display_frame.pack(fill='both', expand=True, padx=4, pady=4)
 
-        # UPDATED: Container for left-aligned, vertically centered cards
+        # UPDATED: Container for stacked cards
         self.card_center_container = tk.Frame(self.display_frame, bg=panel_color)
-        self.card_center_container.pack(anchor='w', expand=True)  # Left-aligned, vertically centered
+        self.card_center_container.pack(anchor='w', expand=True)
 
         self._add_hand_display()
 
@@ -60,18 +60,19 @@ class PlayerPanel(BaseCardPanel):
         self._build_input_row()
 
     def _add_hand_display(self):
-        """Add hand display for player with left-aligned, vertically centered layout."""
-        hand_frame = tk.Frame(self.card_center_container, bg=COLORS['fg_player'])
-        hand_frame.pack(anchor='w', expand=True, pady=1)  # Left-aligned, vertically centered
-        self.displays.append(hand_frame)
+        """Add hand display for player with stacked card canvas."""
+        # UPDATED: Use Canvas for stacked card positioning
+        hand_canvas = tk.Canvas(self.card_center_container, bg=COLORS['fg_player'], highlightthickness=0)
+        hand_canvas.pack(anchor='w', expand=True, pady=1)
+        self.displays.append(hand_canvas)
         self.card_widgets.append([])
 
     def _build_input_row(self):
-        """Build rank input buttons and score display - LEFT-ALIGNED with minimal spacing."""
+        """Build rank input buttons and score display."""
         bottom_frame = tk.Frame(self, bg=COLORS['fg_player'])
         bottom_frame.pack(fill='x', pady=2)
 
-        # Rank buttons - LEFT-ALIGNED with MINIMAL SPACING
+        # Rank buttons
         btn_row = tk.Frame(bottom_frame, bg=COLORS['fg_player'])
         btn_row.pack(side=tk.LEFT, anchor='w', padx=0)
 
@@ -89,7 +90,7 @@ class PlayerPanel(BaseCardPanel):
             b.grid(row=0, column=ri, padx=(0 if ri == 0 else 2, 0), pady=0, ipadx=0, ipady=0, sticky='w')
             self.rank_btns.append(b)
 
-        # GLOBAL UNDO button - MINIMAL SPACING
+        # GLOBAL UNDO button
         self.undo_btn = tk.Button(
             btn_row, text='U',
             width=1,
@@ -100,7 +101,7 @@ class PlayerPanel(BaseCardPanel):
         )
         self.undo_btn.grid(row=0, column=len(RANKS), padx=(2, 0), pady=0, ipadx=0, ipady=0, sticky='w')
 
-        # Score display - RIGHT-ALIGNED with more space
+        # Score display
         self.score_label = tk.Label(
             bottom_frame, text="",
             font=('Segoe UI', 9, 'bold'),
@@ -109,7 +110,7 @@ class PlayerPanel(BaseCardPanel):
         )
         self.score_label.pack(side=tk.RIGHT, padx=5)
 
-        # Action buttons directly below rank buttons
+        # Action buttons
         action_row = tk.Frame(self, bg=COLORS['fg_player'])
         action_row.pack(anchor='w', pady=(0, 2))
 
@@ -155,28 +156,32 @@ class PlayerPanel(BaseCardPanel):
         print("PLAYER: Reset clicked - resetting player panel")
         self.reset()
 
-    def create_card_widget(self, rank, suit, parent, size_scale=1.0):
-        """UPDATED: Create player card widget with dynamic scaling based on splits."""
-        # UPDATED: Base dimensions
+    def create_stacked_card_widget(self, rank, suit, canvas, x_offset, size_scale=1.0):
+        """UPDATED: Create player card widget positioned for stacking with dynamic scaling."""
+        # Base dimensions with scaling
         base_width = 45
         base_height = 65
 
-        # Apply scaling
         card_width = int(base_width * size_scale)
         card_height = int(base_height * size_scale)
 
-        # Create main card frame with white background and black border
-        card_frame = tk.Frame(parent,
+        # Create main card frame
+        card_frame = tk.Frame(canvas,
                               bg='white',
                               relief=tk.SOLID,
                               bd=1,
                               width=card_width,
                               height=card_height)
-        card_frame.pack_propagate(False)  # Maintain fixed size
+        card_frame.pack_propagate(False)
 
-        # UPDATED: Spacing based on card size
-        spacing = max(1, int(2 * size_scale))
-        card_frame.pack(side=tk.LEFT, padx=spacing, pady=spacing)
+        # UPDATED: Position using place() for stacking
+        y_position = 10  # Fixed vertical position
+        canvas.create_window(x_offset, y_position, window=card_frame, anchor='nw')
+
+        # Update canvas scroll region to accommodate cards
+        canvas.configure(scrollregion=canvas.bbox("all"))
+        min_canvas_height = card_height + 20
+        canvas.configure(height=min_canvas_height)
 
         # Determine suit color and symbol
         suit_colors = {'♠': 'black', '♣': 'black', '♥': 'red', '♦': 'red'}
@@ -184,11 +189,9 @@ class PlayerPanel(BaseCardPanel):
 
         suit_symbol = suit_symbols.get(suit, suit)
         suit_color = suit_colors.get(suit_symbol, 'black')
-
-        # Display rank (handle 10 specially)
         display_rank = '10' if rank in ['T', '10'] else rank
 
-        # UPDATED: Scaled font sizes
+        # Scaled font sizes
         corner_font_size = max(4, int(6 * size_scale))
         center_font_size = max(8, int(12 * size_scale))
 
@@ -197,7 +200,7 @@ class PlayerPanel(BaseCardPanel):
         elif rank == 'A':
             center_font_size = max(14, int(20 * size_scale))
 
-        # Top-left corner: rank and suit
+        # Top-left corner: rank and suit (ALWAYS VISIBLE for stacking)
         top_left = tk.Label(card_frame,
                             text=f"{display_rank}\n{suit_symbol}",
                             font=('Arial', corner_font_size, 'bold'),
@@ -244,7 +247,7 @@ class PlayerPanel(BaseCardPanel):
             self.on_action(action, self.current_hand)
 
     def _handle_stand_skip(self):
-        """Handle the unified Stand/Skip button - exact same logic as shared input."""
+        """Handle the unified Stand/Skip button."""
         if getattr(self, 'play_phase', True):
             print("PLAYER: Stand action in play phase")
             self._action('stand')
@@ -306,7 +309,7 @@ class PlayerPanel(BaseCardPanel):
         self.update_display()
 
     def update_display(self):
-        """UPDATED: Update player display with dynamic card scaling - COMPACT STACKING."""
+        """UPDATED: Update player display with stacked cards - DYNAMIC SCALING."""
         # Clear existing card widgets
         for hand_widgets in self.card_widgets:
             for widget in hand_widgets:
@@ -317,46 +320,50 @@ class PlayerPanel(BaseCardPanel):
 
         self.card_widgets = []
 
-        # UPDATED: Determine card scale based on number of hands
+        # Determine card scale based on number of hands
         card_scale = 0.7 if len(self.hands) > 1 else 2.0  # Half-size for splits, double for single
-        print(f"PLAYER: Using card scale {card_scale} for {len(self.hands)} hands")
+        stack_offset = int(18 * card_scale)  # Adjust stacking offset based on scale
+        print(f"PLAYER: Using card scale {card_scale}, stack offset {stack_offset} for {len(self.hands)} hands")
 
         # Update each hand
         for i, hand in enumerate(self.hands):
             if i >= len(self.displays):
                 self._add_hand_display()
 
-            display_frame = self.displays[i]
+            canvas = self.displays[i]
             self.card_widgets.append([])
 
-            # Clear display frame
-            for widget in display_frame.winfo_children():
-                try:
-                    widget.destroy()
-                except:
-                    pass
+            # Clear canvas
+            canvas.delete("all")
 
             # Add hand indicator for splits
             if len(self.hands) > 1:
                 # Show split limitation status
                 split_status = " (No Resplit)" if i in self.split_history else ""
-                hand_label = tk.Label(
-                    display_frame,
-                    text=f"Hand {i + 1}" + (" ←" if i == self.current_hand else "") + split_status,
-                    font=('Segoe UI', 8, 'bold'),
-                    bg=COLORS['fg_player'],
-                    fg='#ffff00' if i == self.current_hand else '#cccccc'
-                )
-                hand_label.pack(anchor='w', pady=(0, 2))  # Left-aligned with small bottom padding
+                hand_label_text = f"Hand {i + 1}" + (" ←" if i == self.current_hand else "") + split_status
 
-            # Create a container for cards to stack them horizontally
-            cards_container = tk.Frame(display_frame, bg=COLORS['fg_player'])
-            cards_container.pack(anchor='w', fill='x')  # Left-aligned for all cases
+                # Create hand label on canvas
+                canvas.create_text(10, 5, text=hand_label_text,
+                                   font=('Segoe UI', 8, 'bold'),
+                                   fill='#ffff00' if i == self.current_hand else '#cccccc',
+                                   anchor='nw')
 
-            # UPDATED: Add cards using dynamic scaling
-            for rank, suit in hand:
-                card_widget = self.create_card_widget(rank, suit, cards_container, card_scale)
+            # Position cards with stacking
+            current_x = 10
+            y_offset = 25 if len(self.hands) > 1 else 10  # Lower position for split hands with labels
+
+            for card_idx, (rank, suit) in enumerate(hand):
+                card_widget = self.create_stacked_card_widget(rank, suit, canvas, current_x, card_scale)
                 self.card_widgets[i].append(card_widget)
+                current_x += stack_offset
+
+            # Update canvas dimensions
+            card_width = int(45 * card_scale)
+            total_width = current_x + card_width if hand else 100
+            canvas_height = int((65 * card_scale) + y_offset + 20)
+
+            canvas.configure(width=min(total_width, 400))  # Cap maximum width
+            canvas.configure(height=canvas_height)
 
         # Update score and status
         self._update_score_display()

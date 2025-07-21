@@ -79,6 +79,9 @@ class UndoManager:
         if not panel:
             return
 
+        # Track completion state before undo so callers can reactivate seats
+        was_done = getattr(panel, "is_done", False)
+
         # -- Undo the recorded change -------------------------------------
         if state.get("action") == "card":
             # Prevent removing a protected first card during initial deal

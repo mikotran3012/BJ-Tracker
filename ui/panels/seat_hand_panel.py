@@ -414,6 +414,7 @@ class SeatHandPanel(tk.Frame):
         # Reactivate hand if an undone card existed
         self.is_done = False
         self.update_display()
+        self.show_action_buttons()
         return card
 
     def reset(self):

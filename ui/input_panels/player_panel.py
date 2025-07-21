@@ -47,11 +47,8 @@ class PlayerPanel(BaseCardPanel):
         self.display_frame.pack(fill='both', expand=True, padx=4, pady=4)
         self._add_hand_display()
 
-        # Input buttons + Score
+        # Input buttons, score, and action buttons
         self._build_input_row()
-
-        # Action buttons - SIMPLIFIED to just Stand/Skip and Split
-        self._build_action_buttons()
 
     def _add_hand_display(self):
         """Add hand display for player."""
@@ -103,6 +100,35 @@ class PlayerPanel(BaseCardPanel):
             width=12, anchor='center'  # WIDER for more space
         )
         self.score_label.pack(side=tk.RIGHT, padx=5)
+
+        # Action buttons directly below rank buttons
+        action_row = tk.Frame(self, bg=COLORS['fg_player'])
+        action_row.pack(anchor='w', pady=(0, 2))
+
+        self.stand_skip_btn = tk.Button(
+            action_row, text='STAND',
+            width=7,
+            height=1,
+            font=('Segoe UI', 9, 'bold'),
+            bg='#ff6666',
+            fg='white',
+            command=self._handle_stand_skip
+        )
+        self.stand_skip_btn.pack(side=tk.LEFT, padx=2)
+
+        self.split_btn = tk.Button(
+            action_row, text='SPLIT',
+            width=6,
+            height=1,
+            font=('Segoe UI', 9, 'bold'),
+            bg='#66ff66',
+            fg='black',
+            command=lambda: self._action('split')
+        )
+        self.split_btn.pack(side=tk.LEFT, padx=2)
+
+        # Update button states
+        self._update_action_buttons()
 
     def create_card_widget(self, rank, suit, parent):
         """Create a graphic playing card widget that looks like a real card."""
@@ -173,38 +199,6 @@ class PlayerPanel(BaseCardPanel):
         bottom_right.place(relx=1, rely=1, anchor=tk.SE, x=-2, y=-2)
 
         return card_frame
-
-    def _build_action_buttons(self):
-        """Build COMPACT player action buttons - renamed Stand button."""
-        self.action_frame = tk.Frame(self, bg=COLORS['fg_player'])
-        self.action_frame.pack(pady=1)  # Reduced padding (was pady=2)
-
-        # Stand button - RENAMED from "STAND/SKIP" and SMALLER
-        self.stand_skip_btn = tk.Button(
-            self.action_frame, text='STAND',  # CHANGED from 'STAND/SKIP'
-            width=7,  # REDUCED width from 10 (shorter text)
-            height=1,  # Explicit small height
-            font=('Segoe UI', 9, 'bold'),  # Smaller font (was 11)
-            bg='#ff6666',  # Same red color as shared input
-            fg='white',
-            command=self._handle_stand_skip
-        )
-        self.stand_skip_btn.pack(side=tk.LEFT, padx=3)  # Reduced spacing (was padx=5)
-
-        # Split button - SMALLER
-        self.split_btn = tk.Button(
-            self.action_frame, text='SPLIT',
-            width=6,  # Reduced width (was 8)
-            height=1,  # Explicit small height
-            font=('Segoe UI', 9, 'bold'),  # Smaller font (was 11)
-            bg='#66ff66',  # Same green color as shared input
-            fg='black',
-            command=lambda: self._action('split')
-        )
-        self.split_btn.pack(side=tk.LEFT, padx=3)  # Reduced spacing (was padx=5)
-
-        # Update button states
-        self._update_action_buttons()
 
     def _action(self, action):
         """Handle action button clicks."""

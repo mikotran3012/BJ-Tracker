@@ -63,9 +63,6 @@ class DealerPanel(BaseCardPanel):
         # Input buttons + Score
         self._build_input_row_dealer()
 
-        # Dealer-specific buttons
-        self._build_dealer_buttons()
-
     def _add_hand_display(self):
         """Add hand display for dealer."""
         hand_frame = tk.Frame(self.display_frame, bg=COLORS['fg_dealer'])
@@ -115,31 +112,29 @@ class DealerPanel(BaseCardPanel):
         )
         self.score_label.pack(side=tk.RIGHT, padx=5)
 
-    def _build_dealer_buttons(self):
-        """Build dealer-specific buttons - COMPACT version."""
+    # Dealer action buttons directly below rank buttons
         dealer_btn_row = tk.Frame(self, bg=COLORS['fg_dealer'])
-        dealer_btn_row.pack(pady=1)  # Reduced padding (was pady=2)
+        dealer_btn_row.pack(anchor='w', pady=(0, 2))
 
-        # Mystery button - SMALLER
         self.mystery_btn = tk.Button(
             dealer_btn_row, text="Mystery (?)",
-            width=8,  # Explicit smaller width
-            height=1,  # Explicit small height
-            font=('Segoe UI', 7),  # Smaller font (was 8)
+            width=8,
+            height=1,
+            font=('Segoe UI', 7),
             command=self.input_mystery_card
         )
-        self.mystery_btn.pack(side=tk.LEFT, padx=1)  # Reduced spacing (was padx=2)
+        self.mystery_btn.pack(side=tk.LEFT, padx=2)
 
-        # Reveal button - SMALLER
         self.reveal_btn = tk.Button(
             dealer_btn_row, text="Reveal Hole",
-            width=8,  # Explicit smaller width
-            height=1,  # Explicit small height
-            font=('Segoe UI', 7),  # Smaller font (was 8)
+            width=8,
+            height=1,
+            font=('Segoe UI', 7),
             command=self.reveal_hole_card
         )
         if self.allow_reveal:
-            self.reveal_btn.pack(side=tk.LEFT, padx=1)
+            self.reveal_btn.pack(side=tk.LEFT, padx=2)
+
 
     def set_play_mode(self):
         """Enable all controls when dealer is hitting during play phase."""

@@ -36,7 +36,7 @@ class PlayerPanel(BaseCardPanel):
             font=('Segoe UI', 10, 'bold'),
             bg=panel_color, fg=COLORS['fg_white']
         )
-        self.label.pack(pady=2)
+        self.label.pack(anchor='w', padx=2, pady=(2, 0))  # align to left edge
 
         # Status display
         self.status_label = tk.Label(
@@ -60,10 +60,14 @@ class PlayerPanel(BaseCardPanel):
         self._build_input_row()
 
     def _add_hand_display(self):
-        """Add hand display for player with stacked card canvas."""
-        # UPDATED: Use Canvas for stacked card positioning
+        """Add hand display for player with stacked card canvas and proper spacing."""
+        # UPDATED: Use Canvas for stacked card positioning with better spacing for splits
         hand_canvas = tk.Canvas(self.card_center_container, bg=COLORS['fg_player'], highlightthickness=0)
-        hand_canvas.pack(anchor='w', expand=True, pady=1)
+
+        # UPDATED: Add proper vertical spacing between split hands
+        pady_spacing = 10 if len(self.hands) > 1 else 1
+        hand_canvas.pack(anchor='w', expand=True, pady=pady_spacing)
+
         self.displays.append(hand_canvas)
         self.card_widgets.append([])
 
@@ -174,14 +178,15 @@ class PlayerPanel(BaseCardPanel):
                               height=card_height)
         card_frame.pack_propagate(False)
 
-        # UPDATED: Position using place() for stacking
-        y_position = 10  # Fixed vertical position
+        # UPDATED: Position using place() for stacking with proper y-offset
+        y_position = 10  # Fixed vertical position within the canvas
         canvas.create_window(x_offset, y_position, window=card_frame, anchor='nw')
 
         # Update canvas scroll region to accommodate cards
         canvas.configure(scrollregion=canvas.bbox("all"))
-        min_canvas_height = card_height + 20
-        canvas.configure(height=min_canvas_height)
+        # UPDATED: Ensure minimum height accounts for card scale
+        min_canvas_height = card_height + 30  # Extra space for proper layout
+        canvas.configure(height=max(canvas.winfo_reqheight(), min_canvas_height))
 
         # Determine suit color and symbol
         suit_colors = {'♠': 'black', '♣': 'black', '♥': 'red', '♦': 'red'}
@@ -320,8 +325,8 @@ class PlayerPanel(BaseCardPanel):
 
         self.card_widgets = []
 
-        # Determine card scale based on number of hands
-        card_scale = 0.7 if len(self.hands) > 1 else 2.0  # Half-size for splits, double for single
+        # UPDATED: Determine card scale based on number of hands - less aggressive scaling
+        card_scale = 0.75 if len(self.hands) > 1 else 2.0  # 75% size for splits, double for single
         stack_offset = int(18 * card_scale)  # Adjust stacking offset based on scale
         print(f"PLAYER: Using card scale {card_scale}, stack offset {stack_offset} for {len(self.hands)} hands")
 
@@ -336,31 +341,38 @@ class PlayerPanel(BaseCardPanel):
             # Clear canvas
             canvas.delete("all")
 
-            # Add hand indicator for splits
+            # Add hand indicator for splits with better positioning
             if len(self.hands) > 1:
                 # Show split limitation status
                 split_status = " (No Resplit)" if i in self.split_history else ""
                 hand_label_text = f"Hand {i + 1}" + (" ←" if i == self.current_hand else "") + split_status
 
-                # Create hand label on canvas
-                canvas.create_text(10, 5, text=hand_label_text,
-                                   font=('Segoe UI', 8, 'bold'),
+                # UPDATED: Create hand label at top of canvas with better positioning
+                canvas.create_text(5, 5, text=hand_label_text,
+                                   font=('Segoe UI', 9, 'bold'),  # Slightly larger font
                                    fill='#ffff00' if i == self.current_hand else '#cccccc',
                                    anchor='nw')
 
-            # Position cards with stacking
-            current_x = 10
-            y_offset = 25 if len(self.hands) > 1 else 10  # Lower position for split hands with labels
+            # UPDATED: Position cards with better spacing and layout
+            current_x = 5
+            # UPDATED: More space below label for split hands, ensure cards don't overlap label
+            y_offset = 25 if len(self.hands) > 1 else 10  # More space for split hand labels
 
             for card_idx, (rank, suit) in enumerate(hand):
                 card_widget = self.create_stacked_card_widget(rank, suit, canvas, current_x, card_scale)
                 self.card_widgets[i].append(card_widget)
                 current_x += stack_offset
 
-            # Update canvas dimensions
+            # UPDATED: Better canvas dimensions with proper height for labels and cards
             card_width = int(45 * card_scale)
+            card_height = int(65 * card_scale)
             total_width = current_x + card_width if hand else 100
-            canvas_height = int((65 * card_scale) + y_offset + 20)
+
+            # UPDATED: Ensure adequate height for cards + labels with proper spacing
+            if len(self.hands) > 1:
+                canvas_height = y_offset + card_height + 15  # Label space + cards + bottom margin
+            else:
+                canvas_height = card_height + 20  # Single hand gets simpler layout
 
             canvas.configure(width=min(total_width, 400))  # Cap maximum width
             canvas.configure(height=canvas_height)

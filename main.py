@@ -83,7 +83,16 @@ class BlackjackTrackerApp(tk.Tk):
 
         hand_cards = [Card(normalize_rank_internal(r), s) for r, s in cards]
         hand = Hand(hand_cards)
-        if not self.rules.dealer_should_hit(hand):
+        should_hit = self.rules.dealer_should_hit(hand)
+
+        if should_hit:
+            # Dealer still allowed to hit
+            if dp.is_done:
+                dp.is_done = False
+                dp.set_enabled(True)
+                dp.update_display()
+        else:
+            # Dealer must stand on this total
             dp.is_done = True
             dp.update_display()
             dp.set_enabled(False)
@@ -839,6 +848,9 @@ class BlackjackTrackerApp(tk.Tk):
             # SYNCHRONIZE PANEL HEIGHTS AFTER CARD INPUT
             self.after_idle(self._synchronize_panel_heights)
 
+            # Auto-stand dealer if total is 17 or more
+            self._check_dealer_auto_stand()
+
         except Exception as e:
             print(f"ERROR in on_dealer_card: {e}")
 
@@ -959,6 +971,9 @@ class BlackjackTrackerApp(tk.Tk):
 
             # SYNCHRONIZE PANEL HEIGHTS AFTER UNDO
             self.after_idle(self._synchronize_panel_heights)
+
+            # Re-evaluate dealer standing state after undo
+            self._check_dealer_auto_stand()
 
         except Exception as e:
             print(f"ERROR in on_dealer_undo: {e}")

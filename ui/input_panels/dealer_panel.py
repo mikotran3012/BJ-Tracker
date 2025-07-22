@@ -374,12 +374,14 @@ class DealerPanel(BaseCardPanel):
         if self.is_dealer and (self.hole_card or self.mystery_hole):
             self.hole_card = None
             self.mystery_hole = False
+            self.is_done = False
             self.on_undo(is_hole=True)
             print("UNDO: Removed dealer hole card")
             card_removed = None
         elif self.hands[hand_idx]:
             last_card = self.hands[hand_idx].pop()
             self.is_busted = False
+            self.is_done = False
             self.on_undo(rank=last_card[0], is_hole=False)
             print(f"UNDO: Removed {last_card[0]}{last_card[1]}")
             card_removed = last_card

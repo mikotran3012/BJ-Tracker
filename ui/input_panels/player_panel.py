@@ -76,12 +76,16 @@ class PlayerPanel(BaseCardPanel):
         self.card_widgets.append([])
 
     def _build_input_row(self):
-        """Build rank input buttons and score display."""
+        """Build rank input buttons and REPOSITIONED score display."""
         bottom_frame = tk.Frame(self, bg=COLORS['fg_player'])
         bottom_frame.pack(fill='x', pady=2)
 
+        # Create horizontal container for buttons and score
+        input_container = tk.Frame(bottom_frame, bg=COLORS['fg_player'])
+        input_container.pack(side=tk.LEFT, anchor='w', padx=0)
+
         # Rank buttons
-        btn_row = tk.Frame(bottom_frame, bg=COLORS['fg_player'])
+        btn_row = tk.Frame(input_container, bg=COLORS['fg_player'])
         btn_row.pack(side=tk.LEFT, anchor='w', padx=0)
 
         self.rank_btns = []
@@ -109,16 +113,17 @@ class PlayerPanel(BaseCardPanel):
         )
         self.undo_btn.grid(row=0, column=len(RANKS), padx=(2, 0), pady=0, ipadx=0, ipady=0, sticky='w')
 
-        # Score display
+        # UPDATED: Score display positioned immediately to the right of rank buttons
         self.score_label = tk.Label(
-            bottom_frame, text="",
-            font=('Segoe UI', 9, 'bold'),
+            input_container, text="",
+            font=('Segoe UI', 10, 'bold'),  # Slightly larger font for better visibility
             bg=COLORS['fg_player'], fg='#ffff00',
-            width=12, anchor='center'
+            width=10, anchor='center',  # Reduced width to fit better
+            relief=tk.SUNKEN, bd=1  # Added visual separation
         )
-        self.score_label.pack(side=tk.RIGHT, padx=5)
+        self.score_label.pack(side=tk.LEFT, padx=(10, 0))  # Position immediately to the right with 10px spacing
 
-        # Action buttons
+        # Action buttons (moved to new row to prevent crowding)
         action_row = tk.Frame(self, bg=COLORS['fg_player'])
         action_row.pack(anchor='w', pady=(0, 2))
 
@@ -164,9 +169,9 @@ class PlayerPanel(BaseCardPanel):
         print("PLAYER: Reset clicked - resetting player panel")
         self.reset()
 
-    def create_stacked_card_widget(self, rank, suit, parent, x_offset, size_scale=1.0):
-        """Create a single card widget positioned for stacking."""
-        # Base dimensions with scaling
+    def create_stacked_card_widget(self, rank, suit, parent, x_offset, size_scale=0.8):  # REDUCED: 0.6 for splits, 1.6 for single becomes 0.48 and 1.28 (20% reduction)
+        """Create a single card widget positioned for stacking with 20% smaller size."""
+        # Base dimensions with scaling - REDUCED by 20%
         base_width = 45
         base_height = 65
 
@@ -193,14 +198,14 @@ class PlayerPanel(BaseCardPanel):
         suit_color = suit_colors.get(suit_symbol, 'black')
         display_rank = '10' if rank in ['T', '10'] else rank
 
-        # Scaled font sizes
-        corner_font_size = max(4, int(6 * size_scale))
-        center_font_size = max(8, int(12 * size_scale))
+        # Scaled font sizes - ADJUSTED for smaller cards
+        corner_font_size = max(3, int(5 * size_scale))  # Slightly smaller for legibility
+        center_font_size = max(6, int(10 * size_scale))  # Slightly smaller for legibility
 
         if rank in ['J', 'Q', 'K']:
-            center_font_size = max(10, int(14 * size_scale))
+            center_font_size = max(8, int(12 * size_scale))  # Slightly smaller for legibility
         elif rank == 'A':
-            center_font_size = max(14, int(20 * size_scale))
+            center_font_size = max(11, int(16 * size_scale))  # Slightly smaller for legibility
 
         # Top-left corner: rank and suit (ALWAYS VISIBLE for stacking)
         top_left = tk.Label(card_frame,
@@ -322,9 +327,9 @@ class PlayerPanel(BaseCardPanel):
 
         self.card_widgets = []
 
-        # UPDATED: Determine card scale based on number of hands - less aggressive scaling
-        card_scale = 0.75 if len(self.hands) > 1 else 2.0
-        stack_offset = 22
+        # UPDATED: Determine card scale based on number of hands - REDUCED by 20%
+        card_scale = 0.6 if len(self.hands) > 1 else 1.6  # Reduced from 0.75/2.0 to 0.6/1.6 (20% reduction)
+        stack_offset = int(18 * (card_scale / 1.6))  # Adjust offset proportionally (was 22 * scale/2.0)
         print(f"PLAYER: Using card scale {card_scale} for {len(self.hands)} hands")
 
         # Update each hand
@@ -350,7 +355,7 @@ class PlayerPanel(BaseCardPanel):
             else:
                 label.config(text="")
 
-            # UPDATED: Position cards with better spacing and layout
+            # UPDATED: Position cards with better spacing and layout for smaller cards
             current_x = 0
 
             for card_idx, (rank, suit) in enumerate(hand):
@@ -358,7 +363,7 @@ class PlayerPanel(BaseCardPanel):
                 self.card_widgets[i].append(card_widget)
                 current_x += stack_offset
 
-            # Size card area to fit cards
+            # Size card area to fit cards - ADJUSTED for smaller cards
             card_width = int(45 * card_scale)
             total_width = card_width + (len(hand) - 1) * stack_offset if hand else card_width
             card_area.configure(width=total_width, height=int(65 * card_scale) + 10)

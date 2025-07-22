@@ -76,9 +76,9 @@ class DealerPanel(BaseCardPanel):
         self.displays.append(hand_canvas)
         self.card_widgets.append([])
 
-    def create_stacked_card_widget(self, rank, suit, canvas, x_offset, size_scale=2.0):
-        """UPDATED: Create dealer card widget positioned for stacking."""
-        # Base dimensions with scaling
+    def create_stacked_card_widget(self, rank, suit, canvas, x_offset, size_scale=1.6):  # REDUCED from 2.0 to 1.6 (20% reduction)
+        """UPDATED: Create dealer card widget positioned for stacking with 20% smaller size."""
+        # Base dimensions with scaling - REDUCED by 20%
         base_width = 50
         base_height = 70
 
@@ -111,13 +111,13 @@ class DealerPanel(BaseCardPanel):
         min_canvas_height = card_height + 20
         canvas.configure(height=min_canvas_height)
 
-        # Scaled font sizes
-        corner_font_size = max(6, int(8 * size_scale))
-        center_font_size = max(12, int(16 * size_scale))
+        # Scaled font sizes - ADJUSTED for smaller cards
+        corner_font_size = max(5, int(7 * size_scale))  # Slightly smaller for legibility
+        center_font_size = max(10, int(14 * size_scale))  # Slightly smaller for legibility
         if rank in ['J', 'Q', 'K']:
-            center_font_size = max(14, int(18 * size_scale))
+            center_font_size = max(12, int(16 * size_scale))  # Slightly smaller for legibility
         elif rank == 'A':
-            center_font_size = max(20, int(24 * size_scale))
+            center_font_size = max(16, int(20 * size_scale))  # Slightly smaller for legibility
 
         # Top-left corner: rank and suit (ALWAYS VISIBLE)
         top_left = tk.Label(card_frame,
@@ -157,8 +157,8 @@ class DealerPanel(BaseCardPanel):
 
         return card_frame
 
-    def create_stacked_mystery_widget(self, canvas, x_offset, size_scale=2.0):
-        """UPDATED: Create mystery card widget positioned for stacking."""
+    def create_stacked_mystery_widget(self, canvas, x_offset, size_scale=1.6):  # REDUCED from 2.0 to 1.6 (20% reduction)
+        """UPDATED: Create mystery card widget positioned for stacking with 20% smaller size."""
         base_width = 50
         base_height = 70
 
@@ -178,19 +178,23 @@ class DealerPanel(BaseCardPanel):
         min_canvas_height = card_height + 20
         canvas.configure(height=min_canvas_height)
 
-        # Scaled font for mystery symbol
-        mystery_font_size = max(20, int(24 * size_scale))
+        # Scaled font for mystery symbol - ADJUSTED for smaller cards
+        mystery_font_size = max(16, int(20 * size_scale))  # Slightly smaller for legibility
         tk.Label(card_frame, text='?', font=('Arial', mystery_font_size, 'bold'),
                  fg='white', bg='#000080').pack(expand=True)
         return card_frame
 
     def _build_input_row_dealer(self):
-        """Build rank input buttons and score display."""
+        """Build rank input buttons and REPOSITIONED score display."""
         bottom_frame = tk.Frame(self, bg=COLORS['fg_dealer'])
         bottom_frame.pack(fill='x', pady=2)
 
+        # Create horizontal container for buttons and score
+        input_container = tk.Frame(bottom_frame, bg=COLORS['fg_dealer'])
+        input_container.pack(side=tk.LEFT, anchor='w', padx=0)
+
         # Rank buttons
-        btn_row = tk.Frame(bottom_frame, bg=COLORS['fg_dealer'])
+        btn_row = tk.Frame(input_container, bg=COLORS['fg_dealer'])
         btn_row.pack(side=tk.LEFT, anchor='w', padx=0)
 
         self.rank_btns = []
@@ -216,16 +220,17 @@ class DealerPanel(BaseCardPanel):
         )
         self.undo_btn.grid(row=0, column=len(RANKS), padx=(2, 0), pady=0, sticky='w')
 
-        # Score display
+        # UPDATED: Score display positioned immediately to the right of rank buttons
         self.score_label = tk.Label(
-            bottom_frame, text="",
-            font=('Segoe UI', 9, 'bold'),
+            input_container, text="",
+            font=('Segoe UI', 10, 'bold'),  # Slightly larger font for better visibility
             bg=COLORS['fg_dealer'], fg='#ffff00',
-            width=12, anchor='center'
+            width=10, anchor='center',  # Reduced width to fit better
+            relief=tk.SUNKEN, bd=1  # Added visual separation
         )
-        self.score_label.pack(side=tk.RIGHT, padx=5)
+        self.score_label.pack(side=tk.LEFT, padx=(10, 0))  # Position immediately to the right with 10px spacing
 
-        # Dealer action buttons
+        # Dealer action buttons (moved to new row to prevent crowding)
         dealer_btn_row = tk.Frame(self, bg=COLORS['fg_dealer'])
         dealer_btn_row.pack(anchor='w', pady=(0, 2))
 
@@ -395,9 +400,9 @@ class DealerPanel(BaseCardPanel):
         # Clear canvas
         canvas.delete("all")
 
-        # Card scale and stacking offset
-        card_scale = 2.0
-        stack_offset = int(22 * card_scale)  # Adjust offset based on scale
+        # Card scale and stacking offset - UPDATED for smaller cards (20% reduction)
+        card_scale = 1.6  # Reduced from 2.0
+        stack_offset = int(18 * card_scale)  # Adjust offset proportionally (was 22)
         current_x = 10
 
         # Show upcard (first card)
@@ -435,9 +440,9 @@ class DealerPanel(BaseCardPanel):
                 self.card_widgets[0].append(card_widget)
                 current_x += stack_offset
 
-        # Update canvas width to fit all cards
-        total_width = current_x + int(50 * card_scale)  # Add card width for last card
-        canvas.configure(width=min(total_width, 500))  # Cap maximum width
+        # Update canvas width to fit all cards - ADJUSTED for smaller cards
+        total_width = current_x + int(50 * card_scale)  # Adjust for smaller card base width
+        canvas.configure(width=min(total_width, 400))  # Reduced max width proportionally (was 500)
 
         # Update score and status
         self._update_score_display()

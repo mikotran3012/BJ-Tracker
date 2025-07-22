@@ -126,15 +126,17 @@ class BlackjackTrackerApp(tk.Tk):
         )
         self.game_state.shared_input_panel.pack(expand=True, fill='both', padx=0, pady=0)
 
-        # 2. SEATS SECTION
+        # 2. SEATS SECTION WITH NEW BUTTONS
         seats_container = tk.Frame(left_frame, bg=COLORS['bg_main'])
         seats_container.pack(fill='x', pady=(5, 2), padx=(5, 5), anchor='w')
 
-        seats_row = tk.Frame(seats_container, bg=COLORS['bg_main'], relief=tk.SUNKEN, bd=1)
-        seats_row.pack(anchor='w', pady=0)
+        # MODIFIED: Create horizontal container for seats and buttons
+        seats_and_buttons_row = tk.Frame(seats_container, bg=COLORS['bg_main'], relief=tk.SUNKEN, bd=1)
+        seats_and_buttons_row.pack(anchor='w', pady=0, fill='x')
 
-        seats_inner = tk.Frame(seats_row, bg=COLORS['bg_main'])
-        seats_inner.pack(pady=2, padx=2)
+        # Left side: Original seats
+        seats_inner = tk.Frame(seats_and_buttons_row, bg=COLORS['bg_main'])
+        seats_inner.pack(side=tk.LEFT, pady=2, padx=2)
 
         print("SETUP_UI: Creating seat panels...")
         for si, seat in enumerate(SEATS):
@@ -143,6 +145,52 @@ class BlackjackTrackerApp(tk.Tk):
                 on_action=self.handle_seat_action
             )
             self.game_state.seat_hands[seat].pack(side=tk.LEFT, padx=1)
+
+        # NEW: Right side - Control buttons container
+        buttons_container = tk.Frame(seats_and_buttons_row, bg=COLORS['bg_main'])
+        buttons_container.pack(side=tk.RIGHT, pady=2, padx=(10, 2))
+
+        # NEW: "New" button - Clears cards only, keeps composition and counts
+        self.new_btn = tk.Button(
+            buttons_container,
+            text="New",
+            width=6,
+            height=2,
+            font=('Segoe UI', 10, 'bold'),
+            bg='#4CAF50',  # Green - neutral/positive action
+            fg='white',
+            activebackground='#45a049',
+            command=self.handle_new_round
+        )
+        self.new_btn.pack(side=tk.LEFT, padx=2)
+
+        # NEW: "Reset" button - Resets everything (shoe reset)
+        self.reset_btn = tk.Button(
+            buttons_container,
+            text="Reset",
+            width=6,
+            height=2,
+            font=('Segoe UI', 10, 'bold'),
+            bg='#f44336',  # Red - alert/destructive action
+            fg='white',
+            activebackground='#da190b',
+            command=self.handle_full_reset
+        )
+        self.reset_btn.pack(side=tk.LEFT, padx=2)
+
+        # NEW: "Cal" button - Placeholder for future functionality
+        self.cal_btn = tk.Button(
+            buttons_container,
+            text="Cal",
+            width=6,
+            height=2,
+            font=('Segoe UI', 10, 'bold'),
+            bg='#2196F3',  # Blue - neutral/tool action
+            fg='white',
+            activebackground='#1976d2',
+            command=self.handle_cal_function
+        )
+        self.cal_btn.pack(side=tk.LEFT, padx=2)
 
         # 3. GAME PANELS SECTION - CRITICAL: Only create panels ONCE
         game_panels_container = tk.Frame(left_frame, bg=COLORS['bg_main'])
@@ -256,6 +304,111 @@ class BlackjackTrackerApp(tk.Tk):
         print(f"  - SharedInputPanel: {self.game_state.shared_input_panel is not None}")
         print(f"  - DealerPanel: {self.game_state.dealer_panel is not None}")
         print(f"  - PlayerPanel: {self.game_state.player_panel is not None}")
+
+    # NEW BUTTON HANDLERS
+    def handle_new_round(self):
+        """NEW: Handle 'New' button - Clear all cards but keep composition and counts."""
+        print("NEW_ROUND: Starting new round (clearing cards only)")
+
+        try:
+            # Clear all card displays but DON'T reset composition or counts
+
+            # Reset dealer panel cards only
+            if self.game_state.dealer_panel:
+                self.game_state.dealer_panel.hands = [[]]
+                self.game_state.dealer_panel.hole_card = None
+                self.game_state.dealer_panel.mystery_hole = False
+                self.game_state.dealer_panel.is_busted = False
+                self.game_state.dealer_panel.is_done = False
+                self.game_state.dealer_panel.current_deal_step = 0
+                self.game_state.dealer_panel.upcard_rank = None
+                self.game_state.dealer_panel.update_display()
+
+            # Reset player panel cards only
+            if self.game_state.player_panel:
+                self.game_state.player_panel.hands = [[]]
+                self.game_state.player_panel.current_hand = 0
+                self.game_state.player_panel.is_busted = False
+                self.game_state.player_panel.is_done = False
+                self.game_state.player_panel.is_surrendered = False
+                self.game_state.player_panel.split_history.clear()
+                self.game_state.player_panel.pending_split = False
+                self.game_state.player_panel.pending_index = 0
+                self.game_state.player_panel.update_display()
+
+            # Reset seat panels cards only
+            for seat, panel in self.game_state.seat_hands.items():
+                panel.hands = [[]]
+                panel.current_hand = 0
+                panel.is_busted = False
+                panel.is_done = False
+                panel.is_surrendered = False
+                panel.split_history.clear()
+                panel.pending_split = False
+                panel.pending_index = 0
+                panel.highlight(active=False)
+                panel.update_display()
+
+            # Reset game flow state but keep composition and counting
+            self.game_state._deal_step = 0
+            self.game_state._focus_idx = 0
+            self.game_state._play_phase = False
+
+            # IMPORTANT: DO NOT reset comp_panel or count_manager
+            # The composition and counts should remain as they were
+
+            # Set focus for new round
+            self.set_focus()
+
+            # SYNCHRONIZE PANEL HEIGHTS
+            self.after_idle(self._synchronize_panel_heights)
+
+            print("NEW_ROUND: New round started successfully")
+
+        except Exception as e:
+            print(f"ERROR in handle_new_round: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def handle_full_reset(self):
+        """NEW: Handle 'Reset' button - Full reset including composition and counts."""
+        print("FULL_RESET: Starting full reset (everything)")
+
+        try:
+            # Reset everything using existing reset methods
+            self.reset_flow()
+
+            print("FULL_RESET: Full reset completed successfully")
+
+        except Exception as e:
+            print(f"ERROR in handle_full_reset: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def handle_cal_function(self):
+        """NEW: Handle 'Cal' button - Placeholder for future calculator functionality."""
+        print("CAL: Calculator function called (placeholder)")
+
+        # TODO: Implement calculator functionality
+        # This could be for:
+        # - Betting strategy calculations
+        # - Basic strategy lookup
+        # - Expected value calculations
+        # - Statistics analysis
+        # etc.
+
+        # For now, just show a placeholder message
+        try:
+            import tkinter.messagebox as msgbox
+            msgbox.showinfo("Calculator",
+                            "Calculator functionality coming soon!\n\n"
+                            "This will include:\n"
+                            "• Betting strategy calculations\n"
+                            "• Basic strategy lookup\n"
+                            "• Expected value analysis\n"
+                            "• Statistics and probabilities")
+        except Exception as e:
+            print(f"ERROR in handle_cal_function: {e}")
 
     def _synchronize_panel_heights(self):
         """Ensure dealer and player panels maintain synchronized heights."""
@@ -736,20 +889,6 @@ class BlackjackTrackerApp(tk.Tk):
         except Exception as e:
             print(f"ERROR in on_player_undo: {e}")
 
-    def on_dealer_card(self, rank, suit, is_hole=False):
-        """Handle dealer card."""
-        try:
-            print(f"ON_DEALER_CARD: {rank}{suit} (hole={is_hole})")
-            if not is_hole:
-                self.game_state.log_card(rank)
-                # ADD THIS: Update counting systems (only for non-hole cards)
-                self.count_manager.add_card(rank)
-                self._update_counting_display()
-            if not self.game_state.is_play_phase():
-                self.advance_flow()
-        except Exception as e:
-            print(f"ERROR in on_dealer_card: {e}")
-
     def on_player_card(self, rank, suit, is_hole=False):
         """Handle player card with panel height synchronization."""
         try:
@@ -880,7 +1019,6 @@ class BlackjackTrackerApp(tk.Tk):
             elif action == 'skip':
                 print("HANDLE_PLAYER_ACTION: Skip - advancing focus")
                 self.advance_play_focus()
-
 
         except Exception as e:
             print(f"ERROR in handle_player_action: {e}")

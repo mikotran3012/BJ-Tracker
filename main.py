@@ -10,7 +10,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 # SIMPLE IMPORTS - only what we need
 from constants import SEATS, RANKS, COLORS, DEFAULT_DECKS, normalize_rank_display, normalize_rank_internal
-
+from rules_engine import BlackjackRules, Card, Hand
 # Core modules
 from core.game_state import GameState
 from actions import ActionHandler
@@ -38,6 +38,7 @@ class BlackjackTrackerApp(tk.Tk):
         self.action_handler = ActionHandler(self)
         self.focus_manager = FocusManager(self.game_state)
         self.count_manager = CountManager(DEFAULT_DECKS)
+        self.rules = BlackjackRules()
 
         # Initialize UI-related attributes
         self.dealer_border = None
@@ -67,6 +68,25 @@ class BlackjackTrackerApp(tk.Tk):
         cards_left = self.game_state.comp_panel.cards_left()
         aces_left = self._calculate_aces_left()
         self.count_panel.update_panel(cards_left, aces_left, self.game_state.decks)
+
+    def _check_dealer_auto_stand(self):
+        """Automatically stand dealer when total reaches 17 or more."""
+        dp = self.game_state.dealer_panel
+        if not dp or dp.mystery_hole:
+            return
+
+        cards = dp.hands[0][:]
+        if dp.hole_card:
+            cards.insert(1, dp.hole_card)
+        if not cards:
+            return
+
+        hand_cards = [Card(normalize_rank_internal(r), s) for r, s in cards]
+        hand = Hand(hand_cards)
+        if not self.rules.dealer_should_hit(hand):
+            dp.is_done = True
+            dp.update_display()
+            dp.set_enabled(False)
 
     def _setup_ui(self):
         """Setup UI with single panel creation and debug tracking."""

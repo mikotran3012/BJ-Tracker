@@ -308,6 +308,10 @@ class DealerPanel(BaseCardPanel):
             else:
                 print("DEALER_RANK: This is regular card")
                 self.choose_suit(rank, is_hole=False)
+        else:
+            # THIRD PHASE: treat all rank clicks as regular card inputs
+            print("DEALER_RANK: Third phase input")
+            self.choose_suit(rank, is_hole=False)
 
     def choose_suit(self, rank, is_hole=False):
         """Show suit selection for dealer."""

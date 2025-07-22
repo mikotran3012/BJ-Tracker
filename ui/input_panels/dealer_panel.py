@@ -430,11 +430,16 @@ class DealerPanel(BaseCardPanel):
             current_x += stack_offset
             start_idx = 2
         elif self.hole_card:
-            hole_widget = self.create_stacked_card_widget(self.hole_card[0], self.hole_card[1], canvas, current_x,
-                                                          card_scale)
+            hole_widget = self.create_stacked_card_widget(
+                self.hole_card[0],
+                self.hole_card[1],
+                canvas,
+                current_x,
+                card_scale,
+            )
             self.card_widgets[0].append(hole_widget)
             current_x += stack_offset
-            start_idx = 2
+            start_idx = 1
         elif len(self.hands[0]) > 1:
             mystery_widget = self.create_stacked_mystery_widget(canvas, current_x, card_scale)
             self.card_widgets[0].append(mystery_widget)

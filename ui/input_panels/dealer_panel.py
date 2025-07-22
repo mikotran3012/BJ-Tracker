@@ -33,6 +33,9 @@ class DealerPanel(BaseCardPanel):
         # NEW: Track if we're in the third dealing phase (dealer's turn to complete hand)
         self.third_phase_active = False
 
+        # Track order of dealer inputs for accurate undo handling
+        self._history = []
+
         self._build_dealer_ui()
         print("DEALER_PANEL: DealerPanel construction complete")
 
@@ -327,11 +330,13 @@ class DealerPanel(BaseCardPanel):
         """DEALER: Input card with hole card support and THIRD PHASE mystery replacement."""
         print(f"DEALER_INPUT: {rank}{suit} (hole={is_hole})")
 
+        actual_hole = is_hole or (self.mystery_hole and not is_hole)
+
         if self.undo_manager:
             self.undo_manager.record_action(
                 "dealer", rank, suit,
                 hand_idx=self.current_hand,
-                is_hole=is_hole
+                is_hole=actual_hole
             )
 
             # If the dealer is playing and a mystery card is showing, replace it
@@ -341,17 +346,21 @@ class DealerPanel(BaseCardPanel):
             print("DEALER_INPUT: Replacing mystery hole card during play phase")
             self.hole_card = (rank, suit)
             self.mystery_hole = False
-            self.on_card(rank, suit, is_hole=False)  # Count the revealed card
+            self.on_card(rank, suit, is_hole=True)
+            self._history.append({"type": "hole", "rank": rank, "suit": suit})
             self.update_display()
             return
 
-        if is_hole:
+        if actual_hole:
             self.hole_card = (rank, suit)
             self.mystery_hole = False
             print("DEALER_INPUT: Set hole card")
             self.on_card(rank, suit, is_hole=True)
+            self._history.append({"type": "hole", "rank": rank, "suit": suit})
         else:
             super().input_card(rank, suit, is_hole=False)
+            # BaseCardPanel.input_card does not track history, so record here
+            self._history.append({"type": "card", "rank": rank, "suit": suit})
 
         self.update_display()
 
@@ -362,32 +371,50 @@ class DealerPanel(BaseCardPanel):
             self.hole_card = None
             print("DEALER_MYSTERY: Added mystery hole card")
             self.on_card("?", "?", is_hole=True)
+            self._history.append({"type": "mystery"})
             self.update_display()
 
     def undo(self, hand_idx=None):
-        """Undo last card."""
+        """Undo last dealer input respecting hole card state."""
         print(f"UNDO: {self.label.cget('text')} undo clicked")
 
         if hand_idx is None:
             hand_idx = self.current_hand
 
-        if self.is_dealer and (self.hole_card or self.mystery_hole):
+        if not self._history:
+            print("UNDO: Nothing to undo")
+            return None
+
+        last = self._history.pop()
+        card_removed = None
+
+        if last.get("type") in ("card", "upcard"):
+            if self.hands[hand_idx]:
+                last_card = self.hands[hand_idx].pop()
+                self.is_busted = False
+                self.is_done = False
+                self.on_undo(rank=last_card[0], is_hole=False)
+                print(f"UNDO: Removed {last_card[0]}{last_card[1]}")
+                card_removed = last_card
+            else:
+                print("UNDO: Card history mismatch")
+        elif last.get("type") == "hole":
             self.hole_card = None
-            self.mystery_hole = False
             self.is_done = False
             self.on_undo(is_hole=True)
             print("UNDO: Removed dealer hole card")
-            card_removed = None
-        elif self.hands[hand_idx]:
-            last_card = self.hands[hand_idx].pop()
-            self.is_busted = False
-            self.is_done = False
-            self.on_undo(rank=last_card[0], is_hole=False)
-            print(f"UNDO: Removed {last_card[0]}{last_card[1]}")
-            card_removed = last_card
+            # Restore mystery placeholder if it existed before
+            if self._history and self._history[-1].get("type") == "mystery":
+                self.mystery_hole = True
+            else:
+                self.mystery_hole = False
+        elif last.get("type") == "mystery":
+            if self.mystery_hole:
+                self.mystery_hole = False
+                self.on_undo(is_hole=True)
+                print("UNDO: Removed mystery hole card")
         else:
-            print("UNDO: Nothing to undo")
-            card_removed = None
+            print("UNDO: Unknown history entry")
 
         self.update_display()
         return card_removed
@@ -560,4 +587,5 @@ class DealerPanel(BaseCardPanel):
         self.current_deal_step = 0
         self.upcard_rank = None
         self.third_phase_active = False  # NEW: Reset third phase tracking
+        self._history = []
         self.update_display()

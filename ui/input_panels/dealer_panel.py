@@ -296,6 +296,11 @@ class DealerPanel(BaseCardPanel):
         """DEALER: Handle rank click."""
         print(f"DEALER_RANK: {rank}")
 
+        # Block any card inputs once the dealer has stood
+        if self.is_done:
+            print("DEALER_RANK: Ignored because dealer is locked")
+            return
+
         if self.in_hole_phase and not self.hole_card_enabled:
             print("DEALER_RANK: Ignored during hole card phase")
             return
@@ -320,6 +325,11 @@ class DealerPanel(BaseCardPanel):
         """Show suit selection for dealer."""
         print(f"DEALER_SUIT: {rank} (hole={is_hole})")
 
+        # Prevent suit selection if dealer is locked
+        if self.is_done:
+            print("DEALER_SUIT: Ignored because dealer is locked")
+            return
+
         def on_suit_selected(suit):
             print(f"DEALER_SUIT_SELECTED: {rank}{suit}")
             self.input_card(rank, suit, is_hole)
@@ -329,6 +339,11 @@ class DealerPanel(BaseCardPanel):
     def input_card(self, rank, suit, is_hole=False):
         """DEALER: Input card with hole card support and THIRD PHASE mystery replacement."""
         print(f"DEALER_INPUT: {rank}{suit} (hole={is_hole})")
+
+        # Ignore any card input once the dealer has stood
+        if self.is_done:
+            print("DEALER_INPUT: Ignored because dealer is locked")
+            return
 
         actual_hole = is_hole or (self.mystery_hole and not is_hole)
 
@@ -366,6 +381,10 @@ class DealerPanel(BaseCardPanel):
 
     def input_mystery_card(self):
         """Input mystery hole card."""
+        if self.is_done:
+            print("DEALER_MYSTERY: Ignored because dealer is locked")
+            return
+
         if self.in_hole_phase and len(self.hands[0]) == 1:
             self.mystery_hole = True
             self.hole_card = None

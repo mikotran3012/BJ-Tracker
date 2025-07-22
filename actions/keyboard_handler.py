@@ -124,6 +124,9 @@ class KeyboardHandler:
                 self.app.handle_shared_card(rank, suit)
         else:
             # DEALER
+            if self.app.game_state.dealer_panel.is_done:
+                print("HOTKEY_PLAY: Dealer locked - input ignored")
+                return
             print(f"HOTKEY_PLAY: Inputting {rank}{suit} to DEALER")
             self.app.game_state.dealer_panel.input_card(rank, suit)
 
@@ -143,6 +146,9 @@ class KeyboardHandler:
                 self.app.handle_shared_card(rank, suit)
         elif self.app.game_state._focus_idx == len(order):
             # DEALER
+            if self.app.game_state.dealer_panel.is_done:
+                print("HOTKEY_DEAL: Dealer locked - input ignored")
+                return
             print(f"HOTKEY_DEAL: Inputting {rank}{suit} to DEALER")
             self.app.game_state.dealer_panel.input_card(rank, suit)
 
@@ -159,7 +165,10 @@ class KeyboardHandler:
                 else:
                     self.app.game_state.shared_input_panel.rank_clicked(char)
             elif self.app.game_state._focus_idx >= len(order):
-                self.app.game_state.dealer_panel.rank_clicked(char)
+                if not self.app.game_state.dealer_panel.is_done:
+                    self.app.game_state.dealer_panel.rank_clicked(char)
+                else:
+                    print("RANK_INPUT: Dealer locked - input ignored")
         else:
             order = list(reversed(self.app.game_state._active_seats))
             if self.app.game_state._focus_idx < len(order):
@@ -169,7 +178,10 @@ class KeyboardHandler:
                 else:
                     self.app.game_state.shared_input_panel.rank_clicked(char)
             elif self.app.game_state._focus_idx == len(order):
-                self.app.game_state.dealer_panel.rank_clicked(char)
+                if not self.app.game_state.dealer_panel.is_done:
+                    self.app.game_state.dealer_panel.rank_clicked(char)
+                else:
+                    print("RANK_INPUT: Dealer locked - input ignored")
 
     def _handle_stand(self):
         """Handle stand action."""

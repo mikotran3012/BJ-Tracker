@@ -334,14 +334,14 @@ class DealerPanel(BaseCardPanel):
                 is_hole=is_hole
             )
 
-        # NEW: Third phase logic - automatically replace mystery card with first input
-        if self.third_phase_active and self.mystery_hole and not is_hole:
-            print("DEALER_INPUT: THIRD PHASE - Replacing mystery hole card with input card")
-            # Replace the mystery hole card with this input card
+            # If the dealer is playing and a mystery card is showing, replace it
+            # with the first real card input.  This ensures the "?" never remains on
+            # screen once a value is known.
+        if self.mystery_hole and not is_hole:
+            print("DEALER_INPUT: Replacing mystery hole card during play phase")
             self.hole_card = (rank, suit)
             self.mystery_hole = False
-            print(f"DEALER_INPUT: Mystery card replaced with {rank}{suit}")
-            self.on_card(rank, suit, is_hole=False)  # Treat as regular card for counting
+            self.on_card(rank, suit, is_hole=False)  # Count the revealed card
             self.update_display()
             return
 

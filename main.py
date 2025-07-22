@@ -109,7 +109,7 @@ class BlackjackTrackerApp(tk.Tk):
         self.game_state.comp_panel = CompPanel(comp_container, self.on_decks_change, self.game_state.decks)
         self.game_state.comp_panel.pack(anchor='w')
 
-        # Right side: Shared input panel
+        # Right side: Shared input panel + NEW CONTROL BUTTONS
         input_container = tk.Frame(top_row_container, bg=COLORS['bg_main'])
         input_container.grid(row=0, column=1, sticky='', padx=(2, 0))
 
@@ -126,17 +126,69 @@ class BlackjackTrackerApp(tk.Tk):
         )
         self.game_state.shared_input_panel.pack(expand=True, fill='both', padx=0, pady=0)
 
-        # 2. SEATS SECTION WITH NEW BUTTONS
+        # NEW: Control buttons container - positioned to the right of shared input
+        buttons_container = tk.Frame(top_row_container, bg=COLORS['bg_main'])
+        buttons_container.grid(row=0, column=2, sticky='w', padx=(8, 0))
+
+        # Add a small visual separator
+        separator = tk.Frame(buttons_container, bg='#555555', width=2, height=40)
+        separator.pack(side=tk.LEFT, padx=(0, 6), pady=8, fill='y')
+
+        # Button group frame
+        button_group = tk.Frame(buttons_container, bg=COLORS['bg_main'])
+        button_group.pack(side=tk.LEFT, pady=8)
+
+        # NEW: "New" button - Smaller size
+        self.new_btn = tk.Button(
+            button_group,
+            text="New",
+            width=5,  # Reduced from 6
+            height=1,  # Reduced from 2
+            font=('Segoe UI', 8, 'bold'),  # Smaller font
+            bg='#4CAF50',  # Green - neutral/positive action
+            fg='white',
+            activebackground='#45a049',
+            command=self.handle_new_round
+        )
+        self.new_btn.pack(side=tk.LEFT, padx=1)
+
+        # NEW: "Reset" button - Smaller size
+        self.reset_btn = tk.Button(
+            button_group,
+            text="Reset",
+            width=5,  # Reduced from 6
+            height=1,  # Reduced from 2
+            font=('Segoe UI', 8, 'bold'),  # Smaller font
+            bg='#f44336',  # Red - alert/destructive action
+            fg='white',
+            activebackground='#da190b',
+            command=self.handle_full_reset
+        )
+        self.reset_btn.pack(side=tk.LEFT, padx=1)
+
+        # NEW: "Cal" button - Smaller size
+        self.cal_btn = tk.Button(
+            button_group,
+            text="Cal",
+            width=5,  # Reduced from 6
+            height=1,  # Reduced from 2
+            font=('Segoe UI', 8, 'bold'),  # Smaller font
+            bg='#2196F3',  # Blue - neutral/tool action
+            fg='white',
+            activebackground='#1976d2',
+            command=self.handle_cal_function
+        )
+        self.cal_btn.pack(side=tk.LEFT, padx=1)
+
+        # 2. SEATS SECTION
         seats_container = tk.Frame(left_frame, bg=COLORS['bg_main'])
         seats_container.pack(fill='x', pady=(5, 2), padx=(5, 5), anchor='w')
 
-        # MODIFIED: Create horizontal container for seats and buttons
-        seats_and_buttons_row = tk.Frame(seats_container, bg=COLORS['bg_main'], relief=tk.SUNKEN, bd=1)
-        seats_and_buttons_row.pack(anchor='w', pady=0, fill='x')
+        seats_row = tk.Frame(seats_container, bg=COLORS['bg_main'], relief=tk.SUNKEN, bd=1)
+        seats_row.pack(anchor='w', pady=0)
 
-        # Left side: Original seats
-        seats_inner = tk.Frame(seats_and_buttons_row, bg=COLORS['bg_main'])
-        seats_inner.pack(side=tk.LEFT, pady=2, padx=2)
+        seats_inner = tk.Frame(seats_row, bg=COLORS['bg_main'])
+        seats_inner.pack(pady=2, padx=2)
 
         print("SETUP_UI: Creating seat panels...")
         for si, seat in enumerate(SEATS):
@@ -145,52 +197,6 @@ class BlackjackTrackerApp(tk.Tk):
                 on_action=self.handle_seat_action
             )
             self.game_state.seat_hands[seat].pack(side=tk.LEFT, padx=1)
-
-        # NEW: Right side - Control buttons container
-        buttons_container = tk.Frame(seats_and_buttons_row, bg=COLORS['bg_main'])
-        buttons_container.pack(side=tk.RIGHT, pady=2, padx=(10, 2))
-
-        # NEW: "New" button - Clears cards only, keeps composition and counts
-        self.new_btn = tk.Button(
-            buttons_container,
-            text="New",
-            width=6,
-            height=2,
-            font=('Segoe UI', 10, 'bold'),
-            bg='#4CAF50',  # Green - neutral/positive action
-            fg='white',
-            activebackground='#45a049',
-            command=self.handle_new_round
-        )
-        self.new_btn.pack(side=tk.LEFT, padx=2)
-
-        # NEW: "Reset" button - Resets everything (shoe reset)
-        self.reset_btn = tk.Button(
-            buttons_container,
-            text="Reset",
-            width=6,
-            height=2,
-            font=('Segoe UI', 10, 'bold'),
-            bg='#f44336',  # Red - alert/destructive action
-            fg='white',
-            activebackground='#da190b',
-            command=self.handle_full_reset
-        )
-        self.reset_btn.pack(side=tk.LEFT, padx=2)
-
-        # NEW: "Cal" button - Placeholder for future functionality
-        self.cal_btn = tk.Button(
-            buttons_container,
-            text="Cal",
-            width=6,
-            height=2,
-            font=('Segoe UI', 10, 'bold'),
-            bg='#2196F3',  # Blue - neutral/tool action
-            fg='white',
-            activebackground='#1976d2',
-            command=self.handle_cal_function
-        )
-        self.cal_btn.pack(side=tk.LEFT, padx=2)
 
         # 3. GAME PANELS SECTION - CRITICAL: Only create panels ONCE
         game_panels_container = tk.Frame(left_frame, bg=COLORS['bg_main'])

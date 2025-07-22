@@ -30,6 +30,9 @@ class DealerPanel(BaseCardPanel):
         self.upcard_rank = None
         self.in_hole_phase = False
 
+        # NEW: Track if we're in the third dealing phase (dealer's turn to complete hand)
+        self.third_phase_active = False
+
         self._build_dealer_ui()
         print("DEALER_PANEL: DealerPanel construction complete")
 
@@ -76,7 +79,8 @@ class DealerPanel(BaseCardPanel):
         self.displays.append(hand_canvas)
         self.card_widgets.append([])
 
-    def create_stacked_card_widget(self, rank, suit, canvas, x_offset, size_scale=1.6):  # REDUCED from 2.0 to 1.6 (20% reduction)
+    def create_stacked_card_widget(self, rank, suit, canvas, x_offset,
+                                   size_scale=1.6):  # REDUCED from 2.0 to 1.6 (20% reduction)
         """UPDATED: Create dealer card widget positioned for stacking with 20% smaller size."""
         # Base dimensions with scaling - REDUCED by 20%
         base_width = 50
@@ -157,7 +161,8 @@ class DealerPanel(BaseCardPanel):
 
         return card_frame
 
-    def create_stacked_mystery_widget(self, canvas, x_offset, size_scale=1.6):  # REDUCED from 2.0 to 1.6 (20% reduction)
+    def create_stacked_mystery_widget(self, canvas, x_offset,
+                                      size_scale=1.6):  # REDUCED from 2.0 to 1.6 (20% reduction)
         """UPDATED: Create mystery card widget positioned for stacking with 20% smaller size."""
         base_width = 50
         base_height = 70
@@ -230,7 +235,7 @@ class DealerPanel(BaseCardPanel):
         )
         self.score_label.pack(side=tk.LEFT, padx=(10, 0))  # Position immediately to the right with 10px spacing
 
-        # Dealer action buttons (moved to new row to prevent crowding)
+        # UPDATED: Dealer action buttons (removed "Reveal Hole" button)
         dealer_btn_row = tk.Frame(self, bg=COLORS['fg_dealer'])
         dealer_btn_row.pack(anchor='w', pady=(0, 2))
 
@@ -243,37 +248,29 @@ class DealerPanel(BaseCardPanel):
         )
         self.mystery_btn.pack(side=tk.LEFT, padx=2)
 
-        self.reveal_btn = tk.Button(
-            dealer_btn_row, text="Reveal Hole",
-            width=8,
-            height=1,
-            font=('Segoe UI', 7),
-            command=self.reveal_hole_card
-        )
-        if self.allow_reveal:
-            self.reveal_btn.pack(side=tk.LEFT, padx=2)
+        # REMOVED: "Reveal Hole" button is no longer created
 
     def set_play_mode(self):
-        """Enable all controls when dealer is hitting during play phase."""
-        print("DEALER: Setting play mode - enabling all controls")
+        """Enable all controls when dealer is hitting during play phase (THIRD PHASE)."""
+        print("DEALER: Setting play mode - enabling all controls for THIRD PHASE")
         self.current_deal_step = 2
+        self.third_phase_active = True  # NEW: Mark that we're in the third dealing phase
         for btn in self.rank_btns:
             btn.config(state=tk.NORMAL)
         self.mystery_btn.config(state=tk.NORMAL)
-        self.reveal_btn.config(state=tk.NORMAL)
         self.undo_btn.config(state=tk.NORMAL)
 
     def set_dealer_turn(self, deal_step):
         """Configure controls during the initial dealing phase."""
         print(f"DEALER: Setting dealer turn for deal step {deal_step}")
         self.current_deal_step = deal_step
+        self.third_phase_active = False  # NEW: Not in third phase during initial dealing
 
         if deal_step == 0:
             print("DEALER: Dealing upcard - enabling all rank buttons")
             for btn in self.rank_btns:
                 btn.config(state=tk.NORMAL)
             self.mystery_btn.config(state=tk.DISABLED)
-            self.reveal_btn.config(state=tk.DISABLED)
             self.undo_btn.config(state=tk.NORMAL)
 
         elif deal_step == 1:
@@ -290,7 +287,6 @@ class DealerPanel(BaseCardPanel):
                     btn.config(state=tk.DISABLED)
 
             self.mystery_btn.config(state=tk.NORMAL)
-            self.reveal_btn.config(state=tk.NORMAL)
             self.undo_btn.config(state=tk.NORMAL)
 
     def rank_clicked(self, rank):
@@ -324,7 +320,7 @@ class DealerPanel(BaseCardPanel):
         get_suit_selection(self, on_suit_selected)
 
     def input_card(self, rank, suit, is_hole=False):
-        """DEALER: Input card with hole card support."""
+        """DEALER: Input card with hole card support and THIRD PHASE mystery replacement."""
         print(f"DEALER_INPUT: {rank}{suit} (hole={is_hole})")
 
         if self.undo_manager:
@@ -333,6 +329,17 @@ class DealerPanel(BaseCardPanel):
                 hand_idx=self.current_hand,
                 is_hole=is_hole
             )
+
+        # NEW: Third phase logic - automatically replace mystery card with first input
+        if self.third_phase_active and self.mystery_hole and not is_hole:
+            print("DEALER_INPUT: THIRD PHASE - Replacing mystery hole card with input card")
+            # Replace the mystery hole card with this input card
+            self.hole_card = (rank, suit)
+            self.mystery_hole = False
+            print(f"DEALER_INPUT: Mystery card replaced with {rank}{suit}")
+            self.on_card(rank, suit, is_hole=False)  # Treat as regular card for counting
+            self.update_display()
+            return
 
         if is_hole:
             self.hole_card = (rank, suit)
@@ -529,15 +536,8 @@ class DealerPanel(BaseCardPanel):
 
         self.undo_btn.config(state=state)
         self.mystery_btn.config(state=tk.NORMAL if hole_phase and enabled else state)
-        if hasattr(self, 'reveal_btn'):
-            self.reveal_btn.config(state=state if not hole_phase else tk.DISABLED)
-        else:
-            if self.current_deal_step == 0:
-                self.set_dealer_turn(0)
-            elif self.current_deal_step == 1:
-                self.set_dealer_turn(1)
-            else:
-                self.set_play_mode()
+
+        # REMOVED: No longer configure reveal_btn since it doesn't exist
 
     def reset(self):
         """Reset dealer panel."""
@@ -548,4 +548,5 @@ class DealerPanel(BaseCardPanel):
         self.in_hole_phase = False
         self.current_deal_step = 0
         self.upcard_rank = None
+        self.third_phase_active = False  # NEW: Reset third phase tracking
         self.update_display()

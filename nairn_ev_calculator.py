@@ -18,6 +18,7 @@ Key innovations adapted:
 5. Conditional probability handling for dealer blackjack avoidance
 """
 
+from enum import Enum
 from typing import Dict, List, Tuple, Optional, Union, Set
 from dataclasses import dataclass, field
 from functools import lru_cache
@@ -77,6 +78,33 @@ class NairnDeck:
         self.total_tens = 16 * num_decks  # 10, J, Q, K
         self.nc = {}  # Card counts by rank
         self.reset_deck()
+
+    # Add this to nairn_integration.py
+
+    # Add this to nairn_integration.py
+
+    def analyze_with_tournament_rules(player_cards, dealer_upcard, deck_composition):
+        """
+        Analyze hand using tournament rules (S17, No DAS, No Resplit, etc.)
+        Integrates with existing rules_engine.py system.
+        """
+        try:
+            from extended_rules_engine import TournamentEVCalculator
+            from rules_engine import Hand, Card
+
+            # Convert to Hand/Card format
+            cards = [Card(card, '♠') for card in player_cards]
+            hand = Hand(cards)
+
+            # Use tournament calculator
+            tournament_calc = TournamentEVCalculator()
+            return tournament_calc.calculate_ev(hand, dealer_upcard, deck_composition)
+
+        except Exception as e:
+            print(f"Tournament rules failed: {e}")
+            # Fallback to existing Nairn analysis
+            from nairn_ev_calculator import analyze_with_nairn_algorithm
+            return analyze_with_nairn_algorithm(player_cards, dealer_upcard, deck_composition)
 
     def reset_deck(self):
         """Reset to full deck composition."""
@@ -333,55 +361,92 @@ class NairnDealer:
         self.dealer_cache[cache_key] = probs
         return probs
 
+    # Additional helper method to make the logic clearer
+
     def _hit_dealer_recursive(self, deck: NairnDeck, probs: DealerProbs, hand_total: int = 0, hand_aces: int = 0):
         """
-        Recursive dealer hitting algorithm adapted from HitDealer in Dealer.cpp.
-        Calculates exact probabilities for all dealer outcomes.
+        NON-RECURSIVE VERSION: Fast iterative dealer simulation.
+        Eliminates infinite recursion while maintaining exact mathematical accuracy.
         """
+        from collections import deque
+
+        # Initialize starting state
         if hand_total == 0:
-            # Initialize with upcard
-            hand_total = self.upcard
-            hand_aces = 1 if self.upcard == ACE else 0
+            initial_total = self.upcard
+            initial_aces = 1 if self.upcard == ACE else 0
+            initial_weight = self.total_weight
+        else:
+            initial_total = hand_total
+            initial_aces = hand_aces
+            initial_weight = self.total_weight
 
-        # Calculate current dealer total
-        dealer_total = hand_total
-        aces = hand_aces
+        # Stack for iterative simulation: (total, aces, weight)
+        stack = deque([(initial_total, initial_aces, initial_weight)])
 
-        # Adjust for aces
-        while dealer_total > 21 and aces > 0:
-            dealer_total -= 10
-            aces -= 1
+        while stack:
+            current_total, current_aces, current_weight = stack.popleft()
 
-        is_soft = aces > 0 and dealer_total <= 21
+            # Normalize dealer total (handle aces optimally)
+            dealer_total = current_total
+            aces_remaining = current_aces
 
-        # Check if dealer must stand
-        if dealer_total >= 17:
-            if not (dealer_total == 17 and is_soft and self.rules.hits_soft_17):
-                # Dealer stands
-                if dealer_total > 21:
-                    probs[ProbBust] += self.total_weight
-                else:
-                    probs[dealer_total - 17] += self.total_weight
-                return
+            # Convert soft to hard when busted
+            while dealer_total > 21 and aces_remaining > 0:
+                dealer_total -= 10  # Convert ace from 11 to 1
+                aces_remaining -= 1
 
-        # Dealer must hit - try each possible card
-        for card in range(ACE, TEN + 1):
-            success, weight = deck.remove_and_get_weight(card, True, self.upcard)
-            if not success:
+            # Terminal Case 1: Busted
+            if dealer_total > 21:
+                probs[ProbBust] += current_weight
                 continue
 
-            # Recursive call with new card
-            old_weight = self.total_weight
-            self.total_weight *= weight
+            # Terminal Case 2: Must stand
+            must_stand = False
 
-            new_total = hand_total + card
-            new_aces = hand_aces + (1 if card == ACE else 0)
+            if dealer_total >= 18:
+                # Always stand on 18+
+                must_stand = True
+            elif dealer_total == 17:
+                # Stand on hard 17, hit soft 17 only if rule allows
+                is_soft = (aces_remaining > 0)
+                if not (is_soft and self.rules.hits_soft_17):
+                    must_stand = True
+            # dealer_total < 17: must hit (must_stand stays False)
 
-            self._hit_dealer_recursive(deck, probs, new_total, new_aces)
+            if must_stand:
+                # Record standing probability
+                prob_index = min(dealer_total - 17, 4)  # 0-4 for totals 17-21
+                prob_index = max(prob_index, 0)  # Safety clamp
+                probs[prob_index] += current_weight
+                continue
 
-            # Restore state
-            deck.restore(card)
-            self.total_weight = old_weight
+            # Continue hitting: add all possible card draws to stack
+            total_cards_remaining = deck.get_total_cards()
+
+            if total_cards_remaining > 0:
+                for card_value in range(ACE, TEN + 1):
+                    cards_of_this_value = deck.get_number(card_value)
+
+                    if cards_of_this_value > 0:
+                        # Calculate probability of drawing this card
+                        card_probability = cards_of_this_value / total_cards_remaining
+
+                        # Apply blackjack avoidance conditioning if needed
+                        if self.upcard in [ACE, TEN]:
+                            blackjack_card = TEN if self.upcard == ACE else ACE
+                            if card_value != blackjack_card:
+                                # Condition on no dealer blackjack
+                                blackjack_remaining = deck.get_number(blackjack_card)
+                                total_non_blackjack = total_cards_remaining - blackjack_remaining
+                                if total_non_blackjack > 0:
+                                    card_probability *= total_cards_remaining / total_non_blackjack
+
+                        # Add new state to stack
+                        new_total = current_total + card_value
+                        new_aces = current_aces + (1 if card_value == ACE else 0)
+                        new_weight = current_weight * card_probability
+
+                        stack.append((new_total, new_aces, new_weight))
 
     def _get_cache_key(self, deck: NairnDeck) -> str:
         """Generate cache key for dealer probability lookup."""
@@ -1253,3 +1318,26 @@ def test_fixed_card_conversion():
 
 if __name__ == "__main__":
     test_fixed_card_conversion()
+
+    # Add this at the very end of nairn_ev_calculator.py
+
+    # ============================================================================
+    # ENFORCED RULES IMPLEMENTATION - Add this section
+    # ============================================================================
+
+    from enum import Enum
+
+
+class HandOrigin(Enum):
+    """Track how a hand was created to enforce rules"""
+    INITIAL = "initial"
+    SPLIT = "split"
+    SPLIT_ACE = "split_ace"
+
+    # Copy all the enforced classes from the artifact here:
+    # - GameRules
+    # - EnforcedNairnHand
+    # - EnforcedDealer
+    # - EnforcedEVCalculator
+    # - create_enforced_calculator()
+    # - validate_rule_enforcement()

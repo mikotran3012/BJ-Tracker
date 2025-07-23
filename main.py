@@ -2,6 +2,7 @@ import tkinter as tk
 import sys
 import os
 
+from nairn_integration import integrate_nairn_with_app
 from counting import CountManager
 from ui.count_panel import CountPanel
 
@@ -56,6 +57,37 @@ class BlackjackTrackerApp(tk.Tk):
 
         # Prompt for seat selection
         self.after(500, self.prompt_seat_selection)
+
+    def setup_nairn_integration(self):
+        """Set up the Nairn EV analysis integration."""
+        try:
+            # Find where you want to place the Nairn panel
+            # This could be in your right panel, below counting systems, etc.
+
+            # Option 1: Add to right panel (recommended)
+            if hasattr(self, 'right_frame'):
+                self.nairn_panel = integrate_nairn_with_app(self, self.right_frame)
+
+            # Option 2: Add to a specific frame
+            elif hasattr(self, 'analysis_frame'):
+                self.nairn_panel = integrate_nairn_with_app(self, self.analysis_frame)
+
+            # Option 3: Create new frame for Nairn analysis
+            else:
+                # Create a new frame in your main window
+                nairn_frame = tk.Frame(self.root, bg='#1a1a1a')
+                nairn_frame.pack(side='right', fill='y', padx=5)
+                self.nairn_panel = integrate_nairn_with_app(self, nairn_frame)
+
+        except Exception as e:
+            print(f"Failed to integrate Nairn EV analysis: {e}")
+            self.nairn_panel = None
+
+    # Optional: Add manual trigger for Nairn analysis
+    def trigger_nairn_analysis(self):
+        """Manually trigger Nairn analysis update."""
+        if hasattr(self, 'nairn_panel') and self.nairn_panel:
+            self.nairn_panel.update_analysis(force_update=True)
 
     def _calculate_aces_left(self):
         """Calculate aces remaining based on composition panel."""

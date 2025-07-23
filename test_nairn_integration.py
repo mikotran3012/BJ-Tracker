@@ -4,10 +4,7 @@ Test script to verify Nairn EV calculator integration.
 Run this before integrating with your main app.
 """
 
-import sys
-import os
-
-from nairn_ev_calculator import analyze_with_enforced_tournament_rules
+from nairn_ev_calculator import BlackjackTrackerNairnIntegration, DDNone, analyze_with_enforced_tournament_rules
 
 
 def test_nairn_imports():
@@ -77,41 +74,49 @@ def test_basic_analysis():
 
 
 def test_splitting_analysis():
-    """Test splitting analysis functionality."""
+    """Test Nairn splitting analysis - REAL TEST."""
     print("Testing Nairn splitting analysis...")
 
     try:
-        from nairn_ev_calculator import BlackjackTrackerNairnIntegration
-
-        rules_config = {
-            'num_decks': 6,
+        # Create integration instance
+        integration = BlackjackTrackerNairnIntegration({
+            'num_decks': 1,
             'hits_soft_17': False,
-            'resplitting': True
-        }
+            'dd_after_split': DDNone,
+            'resplitting': False
+        })
 
-        integration = BlackjackTrackerNairnIntegration(rules_config)
-
-        # Test splitting for 8,8 vs A
+        # Test deck composition
         deck_comp = {
-            'A': 23, '2': 24, '3': 24, '4': 24, '5': 24,
-            '6': 24, '7': 24, '8': 22, '9': 24, '10': 96,
-            'J': 24, 'Q': 24, 'K': 24
+            'A': 4, '2': 4, '3': 4, '4': 4, '5': 4,
+            '6': 4, '7': 4, '8': 2, '9': 4, '10': 3,
+            'J': 4, 'Q': 4, 'K': 4
         }
 
-        # exact_results = integration.get_exact_split_analysis('8', deck_comp)  # Disabled - causes infinite recursion
-        exact_results = {"no_double": 0.1, "double_any": 0.15}  # Mock result for now
+        # REAL SPLITTING TEST
+        exact_results = integration.get_exact_split_analysis('8', deck_comp)
 
-        if exact_results and len(exact_results) > 0:
-            print(f"✓ Splitting analysis successful: {len(exact_results)} scenarios calculated")
+        print(f"Real splitting results: {exact_results}")
+
+        # Verify we got actual numbers
+        if isinstance(exact_results, dict) and len(exact_results) >= 2:
+            for rule, ev in exact_results.items():
+                if isinstance(ev, (int, float)) and -1.0 <= ev <= 1.0:
+                    print(f"  {rule}: {ev:.4f}")
+                else:
+                    print(f"  WARNING: Unusual EV for {rule}: {ev}")
+
+            print("✓ Splitting analysis successful: Real results calculated")
             return True
         else:
-            print("✗ Splitting analysis failed: No results")
+            print("❌ Splitting analysis failed: Invalid results")
             return False
 
     except Exception as e:
-        print(f"✗ Splitting analysis failed: {e}")
+        print(f"❌ Splitting analysis failed: {e}")
+        import traceback
+        traceback.print_exc()
         return False
-
 
 def test_ui_components():
     """Test that UI components can be created (without displaying)."""
@@ -154,18 +159,53 @@ def test_ui_components():
         return False
 
 
-def run_all_tests():
-    """Run all integration tests."""
-    print("=" * 60)
-    print("NAIRN EV CALCULATOR INTEGRATION TESTS")
-    print("=" * 60)
+def test_nonstandard_rules(analyze_with_nonstandard_rules=None):
+    """Test the nonstandard rules implementation."""
+    print("Testing nonstandard rules...")
 
+    try:
+        # Test case: Hard 16 vs 10 with nonstandard rules
+        nonstandard_result = analyze_with_nonstandard_rules(
+            player_cards=['10', '6'],  # Hard 16
+            dealer_upcard='10',
+            deck_composition={
+                'A': 4, '2': 4, '3': 4, '4': 4, '5': 4, '6': 3, '7': 4,
+                '8': 4, '9': 4, '10': 3, 'J': 4, 'Q': 4, 'K': 4
+            },
+            rules_config={
+                'peek_hole': False,  # NO PEEK
+                'ultra_late_surrender': True,  # ULTRA-LENIENT SURRENDER
+                'num_decks': 1
+            }
+        )
+
+        print(f"Nonstandard rules result: {nonstandard_result}")
+
+        # Verify surrender is available in nonstandard rules
+        if 'surrender' in nonstandard_result:
+            print("✓ Ultra-lenient surrender available")
+            surrender_ev = nonstandard_result['surrender']
+            print(f"  Surrender EV: {surrender_ev:.4f}")
+            return True
+        else:
+            print("❌ Ultra-lenient surrender not available")
+            return False
+
+    except Exception as e:
+        print(f"❌ Nonstandard rules test failed: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+def run_all_tests(test_integration_imports=None, test_imports=None):
+    """Run all tests including nonstandard rules."""
     tests = [
-        ("Import Tests", test_nairn_imports),
-        ("Integration Import Tests", test_nairn_integration_imports),
-        ("Basic Analysis Test", test_basic_analysis),
-        ("Splitting Analysis Test", test_splitting_analysis),
-        ("UI Component Test", test_ui_components)
+        ("Import Tests", test_imports),
+        ("Integration Import Tests", test_integration_imports),
+        ("Basic Analysis", test_basic_analysis),
+        ("Splitting Analysis", test_splitting_analysis),
+        ("Nonstandard Rules", test_nonstandard_rules),  # ADD THIS LINE
+        ("UI Component", test_ui_components),
     ]
 
     results = []

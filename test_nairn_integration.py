@@ -159,7 +159,7 @@ def test_ui_components():
         return False
 
 
-def test_nonstandard_rules(analyze_with_nonstandard_rules=None):
+def test_nonstandard_rules():
     """Test the nonstandard rules implementation."""
     print("Testing nonstandard rules...")
 
@@ -197,7 +197,7 @@ def test_nonstandard_rules(analyze_with_nonstandard_rules=None):
         traceback.print_exc()
         return False
 
-def run_all_tests(test_integration_imports=None, test_imports=None):
+def run_all_tests():
     """Run all tests including nonstandard rules."""
     tests = [
         ("Import Tests", test_imports),

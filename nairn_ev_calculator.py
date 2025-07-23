@@ -725,29 +725,6 @@ class NairnEVCalculator:
         # Return the best EV
         return max(actions.values()) if actions else -1.0
 
-    def create_nonstandard_nairn_calculator(rules_config: Dict = None) -> NairnEVCalculator:
-        """Create calculator with nonstandard rules."""
-        if rules_config is None:
-            rules_config = {}
-
-        rules = NairnRules(
-            # Standard rules
-            hits_soft_17=rules_config.get('hits_soft_17', False),
-            dd_after_split=rules_config.get('dd_after_split', DDNone),
-            resplitting=rules_config.get('resplitting', False),
-            num_decks=rules_config.get('num_decks', 6),
-            blackjack_payout=rules_config.get('blackjack_payout', 1.5),
-
-            # NONSTANDARD RULES
-            peek_hole=rules_config.get('peek_hole', True),  # Set False for no peek
-            ultra_late_surrender=rules_config.get('ultra_late_surrender', False),  # Set True for ultra-lenient
-            surrender_after_hit=rules_config.get('surrender_after_hit', False),
-            surrender_after_split=rules_config.get('surrender_after_split', False),
-            surrender_max_cards=rules_config.get('surrender_max_cards', 2)
-        )
-
-        return NairnEVCalculator(rules)
-
     def analyze_with_nonstandard_rules(player_cards: List[str],
                                        dealer_upcard: str,
                                        deck_composition: Dict[str, int],
@@ -897,6 +874,39 @@ def create_nairn_calculator(rules_config: Dict = None) -> NairnEVCalculator:
 
     return NairnEVCalculator(rules)
 
+def create_nonstandard_nairn_calculator(rules_config: Dict = None) -> NairnEVCalculator:
+    """Create a calculator using optional nonstandard blackjack rules.
+
+    This factory enables features such as the *no peek* rule and
+    *ultra-late surrender* without needing to instantiate :class:`NairnEVCalculator`
+    directly.  ``rules_config`` follows the same keys as ``create_nairn_calculator``
+    with additional entries for the custom behaviours.
+    """
+    if rules_config is None:
+        rules_config = {}
+
+    rules = NairnRules(
+        # Standard rules
+        hits_soft_17=rules_config.get('hits_soft_17', False),
+        dd_after_split=rules_config.get('dd_after_split', DDNone),
+        resplitting=rules_config.get('resplitting', False),
+        num_decks=rules_config.get('num_decks', 6),
+        blackjack_payout=rules_config.get('blackjack_payout', 1.5),
+
+        # NONSTANDARD RULES
+        peek_hole=rules_config.get('peek_hole', True),
+        ultra_late_surrender=rules_config.get('ultra_late_surrender', False),
+        surrender_after_hit=rules_config.get('surrender_after_hit', False),
+        surrender_after_split=rules_config.get('surrender_after_split', False),
+        surrender_max_cards=rules_config.get('surrender_max_cards', 2),
+    )
+
+    return NairnEVCalculator(rules)
+
+
+def create_custom_nairn_calculator(rules_config: Dict) -> NairnEVCalculator:
+    """Convenience wrapper to create a calculator with an arbitrary rule set."""
+    return create_nonstandard_nairn_calculator(rules_config)
 
 def analyze_with_nairn_algorithm(player_cards: List[str],
                                  dealer_upcard: str,

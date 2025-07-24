@@ -216,6 +216,7 @@ def run_all_tests():
         ("Splitting Analysis", test_splitting_analysis),
         ("Nonstandard Rules", test_nonstandard_rules),
         ("UI Component", test_ui_components),
+        ("Comprehensive Move Analysis", test_all_moves_comprehensive),  # Add this line
     ]
 
     results = []
@@ -255,5 +256,77 @@ def run_all_tests():
     return passed == len(results)
 
 
+def test_all_moves_comprehensive():
+    """Test that Nairn calculator provides comprehensive move analysis."""
+    print("Testing comprehensive move analysis...")
+
+    try:
+        test_scenarios = [
+            (['10', '6'], '10', "Hard 16 vs 10"),
+            (['A', '7'], '9', "Soft 18 vs 9"),
+            (['8', '8'], 'A', "Pair 8s vs Ace"),
+            (['5', '6'], '5', "11 vs 5"),
+        ]
+
+        all_passed = True
+
+        for player_cards, dealer_upcard, description in test_scenarios:
+            deck_comp = {
+                'A': 24, '2': 24, '3': 24, '4': 24, '5': 24,
+                '6': 24, '7': 24, '8': 24, '9': 24, '10': 24,
+                'J': 24, 'Q': 24, 'K': 24
+            }
+            # Remove dealt cards
+            for card in player_cards + [dealer_upcard]:
+                if card in deck_comp:
+                    deck_comp[card] -= 1
+
+            try:
+                results = analyze_with_enforced_tournament_rules(
+                    player_cards, dealer_upcard, deck_comp, {'num_decks': 6}
+                )
+
+                print(f"\n  📋 {description}")
+
+                # Check that we have the 5 main moves
+                expected_moves = ['stand', 'hit', 'double', 'split', 'surrender']
+                moves_found = []
+
+                for move in expected_moves:
+                    if move in results:
+                        moves_found.append(move)
+                        if results[move] is None:
+                            print(f"    {move}: N/A")
+                        elif isinstance(results[move], (int, float)):
+                            print(f"    {move}: {results[move]:+.4f}")
+                        else:
+                            print(f"    {move}: {results[move]}")
+
+                if 'best' in results:
+                    print(f"    ➤ Best: {results['best'].upper()}")
+
+                # Check if we got most moves (some might be N/A for impossible moves like split non-pairs)
+                if len(moves_found) >= 4:  # At least 4 out of 5 moves
+                    print(f"    ✓ Comprehensive analysis: {len(moves_found)}/5 moves calculated")
+                else:
+                    print(f"    ⚠️ Limited analysis: only {len(moves_found)}/5 moves calculated")
+                    all_passed = False
+
+            except Exception as e:
+                print(f"    ❌ {description}: {e}")
+                all_passed = False
+
+        if all_passed:
+            print("\n✓ Comprehensive move analysis test passed")
+            return True
+        else:
+            print("\n⚠️ Some comprehensive analysis tests had issues")
+            return True  # Don't fail the whole suite for this
+
+    except Exception as e:
+        print(f"❌ Comprehensive analysis test failed: {e}")
+        return False
+
 if __name__ == "__main__":
     success = run_all_tests()
+

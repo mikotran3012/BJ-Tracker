@@ -45,7 +45,7 @@ class BlackjackTrackerApp(tk.Tk):
         self.dealer_border = None
         self.player_border = None
         self.panel_min_height = 180
-        self._ui_setup_complete = False  # ADD THIS LINE
+        self._ui_setup_complete = False
 
         # Build the complete UI - SHOULD ONLY BE CALLED ONCE
         print("MAIN_INIT: Calling _setup_ui()...")

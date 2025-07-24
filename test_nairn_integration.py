@@ -4,7 +4,17 @@ Test script to verify Nairn EV calculator integration.
 Run this before integrating with your main app.
 """
 
-from nairn_ev_calculator import BlackjackTrackerNairnIntegration, DDNone, analyze_with_enforced_tournament_rules
+from nairn_ev_calculator import (
+    BlackjackTrackerNairnIntegration,
+    DDNone,
+    analyze_with_enforced_tournament_rules,
+    analyze_with_nairn_algorithm,
+)
+
+# Wrapper used in tests to maintain backward-compatible function name
+def analyze_with_nonstandard_rules(*args, **kwargs):
+    """Call :func:`analyze_with_nairn_algorithm` with the given arguments."""
+    return analyze_with_nairn_algorithm(*args, **kwargs)
 
 
 def test_nairn_imports():
@@ -165,7 +175,7 @@ def test_nonstandard_rules():
 
     try:
         # Test case: Hard 16 vs 10 with nonstandard rules
-        nonstandard_result = analyze_with_nonstandard_rules(
+        nonstandard_result = analyze_with_enforced_tournament_rules(
             player_cards=['10', '6'],  # Hard 16
             dealer_upcard='10',
             deck_composition={
@@ -200,11 +210,11 @@ def test_nonstandard_rules():
 def run_all_tests():
     """Run all tests including nonstandard rules."""
     tests = [
-        ("Import Tests", test_imports),
-        ("Integration Import Tests", test_integration_imports),
+        ("Import Tests", test_nairn_imports),
+        ("Integration Import Tests", test_nairn_integration_imports),
         ("Basic Analysis", test_basic_analysis),
         ("Splitting Analysis", test_splitting_analysis),
-        ("Nonstandard Rules", test_nonstandard_rules),  # ADD THIS LINE
+        ("Nonstandard Rules", test_nonstandard_rules),
         ("UI Component", test_ui_components),
     ]
 

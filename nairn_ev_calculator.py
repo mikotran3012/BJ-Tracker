@@ -440,7 +440,7 @@ class NairnEVCalculator:
 
         # Doubling EV (if allowed)
         if self._can_double(hand, is_split_hand):
-            results['double'] = self._calculate_double_ev(hand, deck, dealer_has_blackjack_check)
+            results['double'] = self._calculate_double_ev(hand, deck)
 
         # Splitting EV (if possible)
         if hand.can_split() and not is_split_hand:
@@ -833,7 +833,7 @@ class NairnEVCalculator:
         # Simplified for tournament rules (no resplitting)
         return {'P2': 1.0, 'P3': 0.0, 'P4': 0.0, 'P31': 0.0, 'P41': 0.0, 'P42': 0.0, 'P43': 0.0, 'P44': 0.0}
 
-    def _can_double(self, hand: NairnHand) -> bool:
+    def _can_double(self, hand: NairnHand, is_split_hand: bool = False) -> bool:
         """Check if doubling is allowed - TOURNAMENT RULES ENFORCED."""
         if len(hand.cards) != 2:
             return False

@@ -5,10 +5,10 @@ Implements the breakthrough splitting algorithms and caching techniques that red
 computation time from 11,000 years to 45 days.
 
 Based on the C++ source code:
-- Dealer.cpp: Advanced dealer probability caching
-- Hand.cpp: Exact splitting calculations
-- Deck.cpp: Optimized deck management with card removal tracking
-- main.cpp: Integration and combo calculations
+- Dealer.cpp_src: Advanced dealer probability caching
+- Hand.cpp_src: Exact splitting calculations
+- Deck.cpp_src: Optimized deck management with card removal tracking
+- main.cpp_src: Integration and combo calculations
 
 Key innovations adapted:
 1. Combinatorial caching system (Tj array equivalent)
@@ -29,7 +29,7 @@ from collections import defaultdict
 # Card constants (matching Nairn's convention)
 ACE, TWO, THREE, FOUR, FIVE, SIX, SEVEN, EIGHT, NINE, TEN = 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
 
-# Dealer probability indices (from Dealer.cpp)
+# Dealer probability indices (from Dealer.cpp_src)
 Prob17, Prob18, Prob19, Prob20, Prob21, ProbBust = 0, 1, 2, 3, 4, 5
 ExVal16, ExVal17, ExVal18, ExVal19, ExVal20, ExVal21 = 0, 1, 2, 3, 4, 5
 
@@ -83,7 +83,7 @@ class NairnRules:
 
 @dataclass
 class DealerProbs:
-    """Dealer probability distribution (from Dealer.cpp)."""
+    """Dealer probability distribution (from Dealer.cpp_src)."""
     p: List[float] = field(default_factory=lambda: [0.0] * 6)
 
     def __getitem__(self, index):
@@ -95,7 +95,7 @@ class DealerProbs:
 
 class NairnDeck:
     """
-    Optimized deck management adapted from Deck.cpp.
+    Optimized deck management adapted from Deck.cpp_src.
     Implements Nairn's efficient card removal/restoration with weight tracking.
     """
 
@@ -192,7 +192,7 @@ class NairnDeck:
 
 class NairnHand:
     """
-    Hand representation adapted from Hand.cpp.
+    Hand representation adapted from Hand.cpp_src.
     Implements Nairn's exact scoring and basic strategy logic.
     """
 
@@ -275,7 +275,7 @@ class NairnHand:
 
 class NairnDealer:
     """
-    Advanced dealer calculation engine adapted from Dealer.cpp.
+    Advanced dealer calculation engine adapted from Dealer.cpp_src.
     Implements Nairn's revolutionary caching and exact probability calculations.
     """
 
@@ -306,7 +306,7 @@ class NairnDealer:
     def _get_tj(self, j: int, x: int) -> int:
         """
         Calculate combinatorial coefficient T_j(x).
-        Equivalent to GetTj function in Dealer.cpp.
+        Equivalent to GetTj function in Dealer.cpp_src.
         """
         if x == 0:
             return 0
@@ -322,7 +322,7 @@ class NairnDealer:
     def get_player_expected_values(self, deck: NairnDeck) -> DealerProbs:
         """
         Calculate exact dealer probabilities and convert to player expected values.
-        Implements the core algorithm from getPlayerExVals in Dealer.cpp.
+        Implements the core algorithm from getPlayerExVals in Dealer.cpp_src.
         """
         # Check cache first (simplified version of Nairn's address calculation)
         cache_key = self._get_cache_key(deck)
@@ -1005,7 +1005,7 @@ class SimplifiedSplitCalculator:
     def _should_hit_split_hand(self, hand: NairnHand, deck: NairnDeck) -> bool:
         """
         Determine if split hand should continue hitting using basic strategy.
-        From basicSplitHit in Hand.cpp.
+        From basicSplitHit in Hand.cpp_src.
         """
         if len(hand.cards) == 1:
             return True  # Always hit one-card hand
@@ -1044,7 +1044,7 @@ class SimplifiedSplitCalculator:
     def _basic_hit_strategy(self, hand: NairnHand, deck: NairnDeck) -> bool:
         """
         Basic strategy hitting decision.
-        Simplified version of basicHit from Hand.cpp.
+        Simplified version of basicHit from Hand.cpp_src.
         """
         total = hand.get_total()
         upcard = self.calculator.dealer.upcard
@@ -1071,7 +1071,7 @@ class SimplifiedSplitCalculator:
 class GriffinAnalyzer:
     """
     Implementation of Griffin's card removal effects analysis.
-    Based on the residual calculations in main.cpp.
+    Based on the residual calculations in main.cpp_src.
     """
 
     def __init__(self, calculator: NairnEVCalculator):

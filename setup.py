@@ -15,19 +15,27 @@ from pybind11.setup_helpers import Pybind11Extension, build_ext
 # ---------------------------------------------------------------------------
 
 def get_compile_flags():
-    flags = ["-O3", "-ffast-math", "-march=native", "-DNDEBUG"]
+    """Return platform-specific C++ compiler flags."""
     if platform.system() == "Windows":
         return ["/O2", "/DNDEBUG", "/fp:fast", "/std:c++17"]
-        if platform.system() == "Darwin":
-            flags.extend(["-mmacosx-version-min=10.9", "-stdlib=libc++"])
-        else:
-            flags.append("-fopenmp")
-        return flags
+    flags = ["-O3", "-ffast-math", "-march=native", "-DNDEBUG"]
+    if platform.system() == "Darwin":
+        flags.extend(["-mmacosx-version-min=10.9", "-stdlib=libc++"])
+    else:
+        flags.append("-fopenmp")
+    return flags
 
-    def get_linker_flags():
-        if platform.system() == "Linux":
-            return ["-lgomp"]
-            return []
+
+def get_linker_flags():
+    """Return platform-specific linker flags."""
+    system = platform.system()
+    if system == "Linux":
+        return ["-lgomp"]
+    if system == "Darwin":
+        return []
+    if system == "Windows":
+        return []
+    return []
 
 # ---------------------------------------------------------------------------
 # Extension configuration
@@ -59,11 +67,11 @@ class ParallelBuildExt(build_ext):
 # ---------------------------------------------------------------------------
 
 setup(
-name="bjlogic_cpp",
+    name="bjlogic_cpp",
     version="0.1.0",
     long_description=Path("README.md").read_text() if Path("README.md").exists() else "",
     ext_modules=ext_modules,
     cmdclass={"build_ext": ParallelBuildExt},
     zip_safe=False,
-python_requires=">=3.10",
+    python_requires=">=3.10",
 )

@@ -1,4 +1,4 @@
-// cpp_src/card_counting.cpp - MINIMAL WORKING VERSION
+// cpp_src/card_counting.cpp - FIXED VERSION
 /*
  * Phase 2.3: Implementation of Advanced Card Counting & Probability Engine
  */
@@ -11,27 +11,53 @@
 namespace bjlogic {
 
 // =============================================================================
-// COUNTING SYSTEM DEFINITIONS - FIXED SYNTAX
+// COUNTING SYSTEM DEFINITIONS - FIXED IMPLEMENTATION
 // =============================================================================
 
-// In your card_counting.cpp, replace the COUNTING_SYSTEMS initialization with this simpler version:
+// FIXED: Properly define the static member with all 8 systems
+const std::unordered_map<CountingSystem, CountingValues> CardCounter::COUNTING_SYSTEMS = {
+    {CountingSystem::HI_LO, CountingValues(
+        {-1, 1, 1, 1, 1, 1, 0, 0, 0, -1},
+        "Hi-Lo", 0.97, 0.51, 0.76)},
 
-//const std::unordered_map<CountingSystem, CountingValues> CardCounter::COUNTING_SYSTEMS = {};
+    {CountingSystem::HI_OPT_I, CountingValues(
+        {0, 0, 1, 1, 1, 1, 0, 0, 0, -1},
+        "Hi-Opt I", 0.88, 0.61, 0.85)},
 
+    {CountingSystem::HI_OPT_II, CountingValues(
+        {0, 1, 1, 2, 2, 1, 1, 0, 0, -2},
+        "Hi-Opt II", 0.91, 0.67, 0.91)},
+
+    {CountingSystem::OMEGA_II, CountingValues(
+        {0, 1, 1, 2, 2, 2, 1, 0, -1, -2},
+        "Omega II", 0.92, 0.67, 0.85)},
+
+    {CountingSystem::ZEN_COUNT, CountingValues(
+        {-1, 1, 1, 2, 2, 2, 1, 0, 0, -2},
+        "Zen Count", 0.96, 0.63, 0.85)},
+
+    {CountingSystem::USTON_APC, CountingValues(
+        {0, 1, 2, 2, 3, 2, 2, 1, -1, -3},
+        "Uston APC", 0.69, 0.55, 0.78)},
+
+    {CountingSystem::REVERE_RAPC, CountingValues(
+        {-2, 1, 2, 2, 3, 2, 1, 0, -1, -2},
+        "Revere RAPC", 0.62, 0.55, 0.90)},
+
+    {CountingSystem::RED_7, CountingValues(
+        {0, 1, 1, 1, 1, 1, 1, 0, 0, -1},
+        "Red 7", 0.78, 0.45, 0.65)}
+};
+
+// Helper function for systems that aren't in the map (shouldn't happen, but safety)
 CountingValues get_system_values_simple(CountingSystem system) {
-    CountingValues values;
-    switch(system) {
-        case CountingSystem::HI_LO:
-            values.values = {-1, 1, 1, 1, 1, 1, 0, 0, 0, -1};
-            values.name = "Hi-Lo";
-            values.betting_correlation = 0.97;
-            break;
-        // Add other systems later
-        default:
-            values.name = "Hi-Lo";
-            values.values = {-1, 1, 1, 1, 1, 1, 0, 0, 0, -1};
+    auto it = CardCounter::COUNTING_SYSTEMS.find(system);
+    if (it != CardCounter::COUNTING_SYSTEMS.end()) {
+        return it->second;
     }
-    return values;
+
+    // Fallback to Hi-Lo if system not found
+    return CardCounter::COUNTING_SYSTEMS.at(CountingSystem::HI_LO);
 }
 
 // =============================================================================
@@ -91,38 +117,8 @@ double CardCounter::get_adjusted_running_count() const {
 void CardCounter::process_card(int rank) {
     if (rank < 1 || rank > 10) return;
 
-    // Get system values safely - ALL 8 SYSTEMS with CORRECT USTON APC values
-    CountingValues system_values;
-    switch(current_system) {
-        case CountingSystem::HI_LO:
-            system_values.values = {-1, 1, 1, 1, 1, 1, 0, 0, 0, -1};
-            break;
-        case CountingSystem::HI_OPT_I:
-            system_values.values = {0, 0, 1, 1, 1, 1, 0, 0, 0, -1};
-            break;
-        case CountingSystem::HI_OPT_II:
-            system_values.values = {0, 1, 1, 2, 2, 1, 1, 0, 0, -2};
-            break;
-        case CountingSystem::OMEGA_II:
-            system_values.values = {0, 1, 1, 2, 2, 2, 1, 0, -1, -2};
-            break;
-        case CountingSystem::ZEN_COUNT:
-            system_values.values = {-1, 1, 1, 2, 2, 2, 1, 0, 0, -2};
-            break;
-        case CountingSystem::USTON_APC:
-            // CORRECTED: A,2,3,4,5,6,7,8,9,T = 0,+1,+2,+2,+3,+2,+2,+1,-1,-3
-            system_values.values = {0, 1, 2, 2, 3, 2, 2, 1, -1, -3};
-            break;
-        case CountingSystem::REVERE_RAPC:
-            system_values.values = {-2, 1, 2, 2, 3, 2, 1, 0, -1, -2};
-            break;
-        case CountingSystem::RED_7:
-            system_values.values = {0, 1, 1, 1, 1, 1, 1, 0, 0, -1};
-            break;
-        default:
-            system_values.values = {-1, 1, 1, 1, 1, 1, 0, 0, 0, -1};
-            break;
-    }
+    // Get system values from the static map
+    const CountingValues& system_values = COUNTING_SYSTEMS.at(current_system);
 
     int rank_index = (rank == 1) ? 0 : rank - 1;
     state.running_count += system_values.values[rank_index];

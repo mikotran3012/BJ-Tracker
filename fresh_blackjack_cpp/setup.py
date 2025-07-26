@@ -26,7 +26,7 @@ bjlogic_extension = Extension(
         'cpp_src/basic_strategy.cpp',  # Complete strategy tables
         'cpp_src/card_counting.cpp',  # NEW: Card counting implementation
         'cpp_src/enhanced_bindings.cpp',  # Enhanced bindings
-        'cpp_src/counting_bindings.cpp'  # NEW: Counting bindings
+        # 'cpp_src/counting_bindings.cpp'  # NEW: Counting bindings
     ],
     include_dirs=[
         pybind11.get_include(),  # PyBind11 headers

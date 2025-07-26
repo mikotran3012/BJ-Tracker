@@ -8,6 +8,35 @@
 #include <pybind11/numpy.h>
 #include "card_counting.hpp"
 
+// Convert Python dict to RulesConfig
+RulesConfig dict_to_rules_config(const py::dict& rules_dict) {
+    RulesConfig rules;
+
+    if (rules_dict.contains("num_decks")) {
+        rules.num_decks = py::cast<int>(rules_dict["num_decks"]);
+    }
+    if (rules_dict.contains("dealer_hits_soft_17")) {
+        rules.dealer_hits_soft_17 = py::cast<bool>(rules_dict["dealer_hits_soft_17"]);
+    }
+    if (rules_dict.contains("double_after_split")) {
+        rules.double_after_split = py::cast<int>(rules_dict["double_after_split"]);
+    }
+    if (rules_dict.contains("resplitting_allowed")) {
+        rules.resplitting_allowed = py::cast<bool>(rules_dict["resplitting_allowed"]);
+    }
+    if (rules_dict.contains("max_split_hands")) {
+        rules.max_split_hands = py::cast<int>(rules_dict["max_split_hands"]);
+    }
+    if (rules_dict.contains("blackjack_payout")) {
+        rules.blackjack_payout = py::cast<double>(rules_dict["blackjack_payout"]);
+    }
+    if (rules_dict.contains("surrender_allowed")) {
+        rules.surrender_allowed = py::cast<bool>(rules_dict["surrender_allowed"]);
+    }
+
+    return rules;
+}
+
 namespace py = pybind11;
 using namespace bjlogic;
 

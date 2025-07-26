@@ -1,14 +1,14 @@
 // cpp_src/enhanced_bindings.cpp
 /*
- * Phase 2.2: Enhanced PyBind11 bindings with complete basic strategy
- * Professional-grade strategy analysis and lookup tables
+ * Phase 2.3: Enhanced PyBind11 bindings with card counting
+ * Professional-grade strategy analysis and card counting
  */
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <pybind11/operators.h>
 #include "bjlogic_core.hpp"
-extern void add_counting_bindings(py::module& m);
+#include "card_counting.hpp"
 
 namespace py = pybind11;
 using namespace bjlogic;
@@ -177,16 +177,115 @@ std::string test_strategy_extension() {
     return "🎯 Complete Basic Strategy Tables successfully implemented!";
 }
 
-// Keep backward compatibility
-extern int get_card_value(const std::string &rank);
-extern std::pair<int, bool> calculate_hand_value(const std::vector<std::string> &ranks);
+// =============================================================================
+// PHASE 2.3: CARD COUNTING FUNCTIONS
+// =============================================================================
+
+// Test function for Phase 2.3
+std::string test_counting_extension() {
+    return "🎯 Advanced Card Counting & Probability Engine successfully implemented!";
+}
+
+// Simple card counter wrapper
+py::dict py_create_card_counter(const std::string& system_name = "Hi-Lo", int num_decks = 6) {
+    try {
+        // Convert string to enum - ALL 8 SYSTEMS
+        CountingSystem system = CountingSystem::HI_LO;
+        if (system_name == "Hi-Opt I") system = CountingSystem::HI_OPT_I;
+        else if (system_name == "Hi-Opt II") system = CountingSystem::HI_OPT_II;
+        else if (system_name == "Omega II") system = CountingSystem::OMEGA_II;
+        else if (system_name == "Zen Count") system = CountingSystem::ZEN_COUNT;
+        else if (system_name == "Uston APC") system = CountingSystem::USTON_APC;
+        else if (system_name == "Revere RAPC") system = CountingSystem::REVERE_RAPC;
+        else if (system_name == "Red 7") system = CountingSystem::RED_7;
+
+        // Create counter
+        CardCounter counter(system, num_decks);
+
+        py::dict result;
+        result["system_name"] = counter.get_system_name();
+        result["running_count"] = counter.get_running_count();
+        result["true_count"] = counter.get_true_count();
+        result["advantage"] = counter.get_advantage();
+        result["penetration"] = counter.get_penetration();
+        result["success"] = true;
+        result["aces_seen"] = counter.get_aces_seen();
+        result["aces_remaining"] = counter.get_aces_remaining();
+
+        return result;
+    } catch (const std::exception& e) {
+        py::dict result;
+        result["error"] = e.what();
+        result["success"] = false;
+        return result;
+    }
+}
+
+// Process cards function
+py::dict py_process_cards_and_count(const std::vector<int>& cards,
+                                   const std::string& system_name = "Hi-Lo",
+                                   int num_decks = 6) {
+    try {
+        // Convert string to enum - ALL 8 SYSTEMS
+        CountingSystem system = CountingSystem::HI_LO;
+        if (system_name == "Hi-Opt I") system = CountingSystem::HI_OPT_I;
+        else if (system_name == "Hi-Opt II") system = CountingSystem::HI_OPT_II;
+        else if (system_name == "Omega II") system = CountingSystem::OMEGA_II;
+        else if (system_name == "Zen Count") system = CountingSystem::ZEN_COUNT;
+        else if (system_name == "Uston APC") system = CountingSystem::USTON_APC;
+        else if (system_name == "Revere RAPC") system = CountingSystem::REVERE_RAPC;
+        else if (system_name == "Red 7") system = CountingSystem::RED_7;
+
+        // Create counter and process cards
+        CardCounter counter(system, num_decks);
+        counter.process_cards(cards);
+
+        py::dict result;
+        result["system_name"] = counter.get_system_name();
+        result["cards_processed"] = cards;
+        result["running_count"] = counter.get_running_count();
+        result["true_count"] = counter.get_true_count();
+        result["advantage"] = counter.get_advantage();
+        result["penetration"] = counter.get_penetration();
+        result["optimal_bet_units"] = counter.get_optimal_bet_units(1.0);
+        result["should_take_insurance"] = counter.should_take_insurance();
+        result["ten_density"] = counter.get_ten_density();
+        result["ace_density"] = counter.get_ace_density();
+        result["success"] = true;
+        result["aces_seen"] = counter.get_aces_seen();
+        result["aces_remaining"] = counter.get_aces_remaining();
+        result["ace_adjustment"] = counter.get_ace_adjustment();
+        result["adjusted_running_count"] = counter.get_adjusted_running_count();
+
+        return result;
+    } catch (const std::exception& e) {
+        py::dict result;
+        result["error"] = e.what();
+        result["success"] = false;
+        return result;
+    }
+}
+
+// Get available counting systems
+py::list py_get_counting_systems() {
+    py::list result;
+    result.append("Hi-Lo");
+    result.append("Hi-Opt I");
+    result.append("Hi-Opt II");
+    result.append("Omega II");
+    result.append("Zen Count");
+    result.append("Uston APC");
+    result.append("Revere RAPC");
+    result.append("Red 7");
+    return result;
+}
 
 // =============================================================================
 // MODULE DEFINITION
 // =============================================================================
 
 PYBIND11_MODULE(bjlogic_cpp, m) {
-    m.doc() = "Advanced Blackjack C++ Logic - Phase 2.2 Complete Basic Strategy";
+    m.doc() = "Advanced Blackjack C++ Logic - Phase 2.3 Complete Card Counting";
 
     // =================================================================
     // ENUMS
@@ -257,24 +356,27 @@ PYBIND11_MODULE(bjlogic_cpp, m) {
           "Create default rules configuration");
 
     // =================================================================
-    // BACKWARD COMPATIBILITY
+    // PHASE 2.3: CARD COUNTING FUNCTIONS
     // =================================================================
 
-    m.def("get_card_value", &get_card_value,
-          "Get numeric value of card rank (compatibility)",
-          py::arg("rank"));
+    m.def("test_counting_extension", &test_counting_extension,
+          "Test Phase 2.3 card counting extension");
 
-    m.def("calculate_hand_value_legacy", &calculate_hand_value,
-          "Calculate hand value from string ranks (compatibility)",
-          py::arg("ranks"));
+    m.def("create_card_counter", &py_create_card_counter,
+          "Create a card counter",
+          py::arg("system") = "Hi-Lo", py::arg("num_decks") = 6);
 
-    // Add the new counting bindings
-    add_counting_bindings(m);
+    m.def("process_cards_and_count", &py_process_cards_and_count,
+          "Process cards and return counting results",
+          py::arg("cards"), py::arg("system") = "Hi-Lo", py::arg("num_decks") = 6);
+
+    m.def("get_counting_systems", &py_get_counting_systems,
+          "Get list of available counting systems");
 
     // =================================================================
     // VERSION INFO
     // =================================================================
 
-    m.attr("__version__") = "2.2.0-strategy";
-    m.attr("__phase__") = "Complete Basic Strategy Tables";
+    m.attr("__version__") = "2.3.0-counting";
+    m.attr("__phase__") = "Advanced Card Counting & Probability Engine";
 }

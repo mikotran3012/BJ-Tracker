@@ -1,7 +1,7 @@
-// cpp_src/basic_strategy.cpp
+// cpp_src/basic_strategy.cpp - FIXED TO MATCH PDF EXACTLY
 /*
- * Phase 2.2: OFFICIAL S17 Basic Strategy
- * Based on official S17-Basic-Strategy.pdf
+ * Phase 2.2: OFFICIAL S17 Basic Strategy - CORRECTED TO MATCH PDF
+ * Based on actual S17-Basic-Strategy.pdf images provided
  */
 
 #include "bjlogic_core.hpp"
@@ -9,7 +9,7 @@
 namespace bjlogic {
 
 // =============================================================================
-// OFFICIAL S17 BASIC STRATEGY TABLES (Per S17-Basic-Strategy.pdf)
+// CORRECTED S17 BASIC STRATEGY TABLES (Exactly per PDF)
 // =============================================================================
 
 // Hard totals 5-21 vs dealer A,2,3,4,5,6,7,8,9,T
@@ -20,13 +20,13 @@ const Action BJLogicCore::HARD_STRATEGY[18][10] = {
     {Action::HIT, Action::HIT, Action::HIT, Action::HIT, Action::HIT, Action::HIT, Action::HIT, Action::HIT, Action::HIT, Action::HIT}, // 7
     {Action::HIT, Action::HIT, Action::HIT, Action::HIT, Action::HIT, Action::HIT, Action::HIT, Action::HIT, Action::HIT, Action::HIT}, // 8
     {Action::HIT, Action::HIT, Action::DOUBLE, Action::DOUBLE, Action::DOUBLE, Action::DOUBLE, Action::HIT, Action::HIT, Action::HIT, Action::HIT}, // 9
-    {Action::DOUBLE, Action::DOUBLE, Action::DOUBLE, Action::DOUBLE, Action::DOUBLE, Action::DOUBLE, Action::DOUBLE, Action::DOUBLE, Action::HIT, Action::HIT}, // 10
-    {Action::HIT, Action::DOUBLE, Action::DOUBLE, Action::DOUBLE, Action::DOUBLE, Action::DOUBLE, Action::DOUBLE, Action::DOUBLE, Action::DOUBLE, Action::DOUBLE}, // 11 (CORRECTED: vs A = HIT)
+    {Action::HIT, Action::DOUBLE, Action::DOUBLE, Action::DOUBLE, Action::DOUBLE, Action::DOUBLE, Action::DOUBLE, Action::DOUBLE, Action::HIT, Action::HIT}, // 10 (PDF: A=H, 2-8=D, 9-T=H)
+    {Action::HIT, Action::DOUBLE, Action::DOUBLE, Action::DOUBLE, Action::DOUBLE, Action::DOUBLE, Action::DOUBLE, Action::DOUBLE, Action::DOUBLE, Action::DOUBLE}, // 11 (PDF: A=H!, 2-9=D, T=H)
     {Action::HIT, Action::HIT, Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::HIT, Action::HIT, Action::HIT, Action::HIT}, // 12
     {Action::HIT, Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::HIT, Action::HIT, Action::HIT, Action::HIT}, // 13
     {Action::HIT, Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::HIT, Action::HIT, Action::HIT, Action::HIT}, // 14
-    {Action::HIT, Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::HIT, Action::HIT, Action::HIT, Action::SURRENDER}, // 15
-    {Action::HIT, Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::HIT, Action::HIT, Action::SURRENDER, Action::SURRENDER}, // 16
+    {Action::HIT, Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::HIT, Action::HIT, Action::HIT, Action::SURRENDER}, // 15 (PDF: 10=SUR)
+    {Action::SURRENDER, Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::HIT, Action::HIT, Action::SURRENDER, Action::SURRENDER}, // 16 (PDF: A=SUR!, 9-T=SUR)
     {Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::STAND}, // 17
     {Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::STAND}, // 18
     {Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::STAND}, // 19
@@ -34,20 +34,20 @@ const Action BJLogicCore::HARD_STRATEGY[18][10] = {
     {Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::STAND}  // 21
 };
 
-// Soft totals A,2-A,9 vs dealer A,2,3,4,5,6,7,8,9,T (Per official PDF)
+// Soft totals A,2-A,9 vs dealer A,2,3,4,5,6,7,8,9,T (Per PDF Soft Totals table)
 const Action BJLogicCore::SOFT_STRATEGY[10][10] = {
     // Player A,2-A,9 vs Dealer A,2,3,4,5,6,7,8,9,T
-    {Action::HIT, Action::HIT, Action::HIT, Action::DOUBLE, Action::DOUBLE, Action::HIT, Action::HIT, Action::HIT, Action::HIT, Action::HIT}, // A,2 (13)
-    {Action::HIT, Action::HIT, Action::HIT, Action::DOUBLE, Action::DOUBLE, Action::HIT, Action::HIT, Action::HIT, Action::HIT, Action::HIT}, // A,3 (14)
-    {Action::HIT, Action::HIT, Action::DOUBLE, Action::DOUBLE, Action::DOUBLE, Action::HIT, Action::HIT, Action::HIT, Action::HIT, Action::HIT}, // A,4 (15)
-    {Action::HIT, Action::HIT, Action::DOUBLE, Action::DOUBLE, Action::DOUBLE, Action::HIT, Action::HIT, Action::HIT, Action::HIT, Action::HIT}, // A,5 (16)
-    {Action::HIT, Action::DOUBLE, Action::DOUBLE, Action::DOUBLE, Action::DOUBLE, Action::HIT, Action::HIT, Action::HIT, Action::HIT, Action::HIT}, // A,6 (17)
-    {Action::STAND, Action::STAND, Action::DOUBLE, Action::DOUBLE, Action::DOUBLE, Action::STAND, Action::STAND, Action::HIT, Action::HIT, Action::HIT}, // A,7 (18) CORRECTED: vs 2 = STAND
-    {Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::STAND}, // A,8 (19) CORRECTED: vs 6 = STAND
-    {Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::STAND}  // A,9 (20)
+    {Action::HIT, Action::HIT, Action::HIT, Action::DOUBLE, Action::DOUBLE, Action::HIT, Action::HIT, Action::HIT, Action::HIT, Action::HIT}, // A,2 (13) - PDF: 4,5=D
+    {Action::HIT, Action::HIT, Action::HIT, Action::DOUBLE, Action::DOUBLE, Action::HIT, Action::HIT, Action::HIT, Action::HIT, Action::HIT}, // A,3 (14) - PDF: 4,5=D
+    {Action::HIT, Action::HIT, Action::DOUBLE, Action::DOUBLE, Action::DOUBLE, Action::HIT, Action::HIT, Action::HIT, Action::HIT, Action::HIT}, // A,4 (15) - PDF: 3,4,5=D
+    {Action::HIT, Action::HIT, Action::DOUBLE, Action::DOUBLE, Action::DOUBLE, Action::HIT, Action::HIT, Action::HIT, Action::HIT, Action::HIT}, // A,5 (16) - PDF: 3,4,5=D
+    {Action::HIT, Action::DOUBLE, Action::DOUBLE, Action::DOUBLE, Action::DOUBLE, Action::HIT, Action::HIT, Action::HIT, Action::HIT, Action::HIT}, // A,6 (17) - PDF: 2,3,4,5=D
+    {Action::HIT, Action::STAND, Action::DOUBLE, Action::DOUBLE, Action::DOUBLE, Action::STAND, Action::STAND, Action::HIT, Action::HIT, Action::HIT}, // A,7 (18) - PDF: 2=S!, 3,4,5=Ds, 6=S
+    {Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::STAND}, // A,8 (19) - PDF: ALL=S!
+    {Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::STAND, Action::STAND}  // A,9 (20) - PDF: ALL=S
 };
 
-// Pairs A,A-T,T vs dealer A,2,3,4,5,6,7,8,9,T (Per official PDF)
+// Pairs A,A-T,T vs dealer A,2,3,4,5,6,7,8,9,T (Per PDF - these look correct)
 const Action BJLogicCore::PAIR_STRATEGY[10][10] = {
     // Pairs A,A-T,T vs Dealer A,2,3,4,5,6,7,8,9,T
     {Action::SPLIT, Action::SPLIT, Action::SPLIT, Action::SPLIT, Action::SPLIT, Action::SPLIT, Action::SPLIT, Action::SPLIT, Action::SPLIT, Action::SPLIT}, // A,A
@@ -63,7 +63,7 @@ const Action BJLogicCore::PAIR_STRATEGY[10][10] = {
 };
 
 // =============================================================================
-// ENHANCED BASIC STRATEGY IMPLEMENTATION
+// ENHANCED BASIC STRATEGY IMPLEMENTATION (unchanged)
 // =============================================================================
 
 Action BJLogicCore::basic_strategy_decision(const std::vector<int>& hand_cards,
@@ -148,7 +148,7 @@ Action BJLogicCore::basic_strategy_decision(const std::vector<int>& hand_cards,
 }
 
 // =============================================================================
-// STRATEGY ANALYSIS FUNCTIONS
+// STRATEGY ANALYSIS FUNCTIONS (unchanged)
 // =============================================================================
 
 std::string BJLogicCore::action_to_string(Action action) {

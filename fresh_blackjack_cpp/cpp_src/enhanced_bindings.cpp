@@ -8,6 +8,7 @@
 #include <pybind11/stl.h>
 #include <pybind11/operators.h>
 #include "bjlogic_core.hpp"
+extern void add_counting_bindings(py::module& m);
 
 namespace py = pybind11;
 using namespace bjlogic;
@@ -266,6 +267,9 @@ PYBIND11_MODULE(bjlogic_cpp, m) {
     m.def("calculate_hand_value_legacy", &calculate_hand_value,
           "Calculate hand value from string ranks (compatibility)",
           py::arg("ranks"));
+
+    // Add the new counting bindings
+    add_counting_bindings(m);
 
     // =================================================================
     // VERSION INFO

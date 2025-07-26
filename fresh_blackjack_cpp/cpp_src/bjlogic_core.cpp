@@ -1,7 +1,7 @@
 // cpp_src/bjlogic_core.cpp
 /*
- * Phase 2.1: Core blackjack logic implementation
- * Migrated and enhanced from original algorithms
+ * Phase 2.2: Core blackjack logic implementation (WITHOUT strategy tables)
+ * Strategy tables are now in basic_strategy.cpp to avoid duplicates
  */
 
 #include "bjlogic_core.hpp"
@@ -11,7 +11,7 @@
 namespace bjlogic {
 
 // =============================================================================
-// CORE LOGIC IMPLEMENTATION
+// CORE LOGIC IMPLEMENTATION (Hand calculations only)
 // =============================================================================
 
 HandData BJLogicCore::calculate_hand_value(const std::vector<int>& cards) {
@@ -64,20 +64,7 @@ bool BJLogicCore::is_hand_busted(const std::vector<int>& cards) {
     return hand.is_busted;
 }
 
-Action BJLogicCore::basic_strategy_decision(const std::vector<int>& hand_cards,
-                                          int dealer_upcard,
-                                          const RulesConfig& rules) {
-    // Simplified basic strategy for now
-    HandData hand = calculate_hand_value(hand_cards);
-
-    // Very basic decisions (we'll enhance this later)
-    if (hand.total >= 17) return Action::STAND;
-    if (hand.total <= 11) return Action::HIT;
-    if (hand.total >= 12 && hand.total <= 16 && dealer_upcard >= 2 && dealer_upcard <= 6) {
-        return Action::STAND;
-    }
-    return Action::HIT;
-}
+// NOTE: basic_strategy_decision and related functions are now in basic_strategy.cpp
 
 // Helper functions
 int BJLogicCore::calculate_hard_total(const std::vector<int>& cards) {

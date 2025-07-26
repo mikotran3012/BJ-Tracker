@@ -1,7 +1,7 @@
 // cpp_src/bjlogic_core.hpp
 /*
- * Phase 2.1: Core blackjack data structures
- * Migrated from the original complex header
+ * Phase 2.2: Enhanced Core with Complete Basic Strategy
+ * Professional-grade blackjack logic with full strategy tables
  */
 
 #ifndef BJLOGIC_CORE_HPP
@@ -84,12 +84,12 @@ enum class Action {
 };
 
 // =============================================================================
-// CORE BLACKJACK LOGIC CLASS (Basic Implementation)
+// CORE BLACKJACK LOGIC CLASS
 // =============================================================================
 
 class BJLogicCore {
 public:
-    // Enhanced hand value calculation (replaces our simple version)
+    // Enhanced hand value calculation
     static HandData calculate_hand_value(const std::vector<int>& cards);
 
     // Additional hand analysis functions
@@ -97,12 +97,28 @@ public:
     static bool can_split_hand(const std::vector<int>& cards);
     static bool is_hand_busted(const std::vector<int>& cards);
 
-    // Basic strategy decision (placeholder for now)
+    // Complete basic strategy with full lookup tables
     static Action basic_strategy_decision(const std::vector<int>& hand_cards,
                                         int dealer_upcard,
                                         const RulesConfig& rules);
 
+    // Strategy analysis functions
+    static std::string action_to_string(Action action);
+    static bool is_basic_strategy_optimal(const std::vector<int>& hand_cards,
+                                        int dealer_upcard,
+                                        const RulesConfig& rules,
+                                        Action chosen_action);
+    static double get_strategy_deviation_cost(const std::vector<int>& hand_cards,
+                                            int dealer_upcard,
+                                            const RulesConfig& rules,
+                                            Action chosen_action);
+
 private:
+    // Complete basic strategy lookup tables
+    static const Action HARD_STRATEGY[18][10];   // Hard totals 5-21 vs dealer A,2-10
+    static const Action SOFT_STRATEGY[10][10];   // Soft totals A,2-A,9 vs dealer A,2-10
+    static const Action PAIR_STRATEGY[10][10];   // Pairs A,A-T,T vs dealer A,2-10
+
     // Helper functions
     static int calculate_hard_total(const std::vector<int>& cards);
     static std::pair<int, bool> calculate_optimal_total(const std::vector<int>& cards);

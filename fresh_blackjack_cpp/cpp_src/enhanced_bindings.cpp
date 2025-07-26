@@ -1,7 +1,7 @@
 // cpp_src/enhanced_bindings.cpp
 /*
- * Phase 2.1: Enhanced PyBind11 bindings with advanced data structures
- * Fixed version without _a literals for compatibility
+ * Phase 2.2: Enhanced PyBind11 bindings with complete basic strategy
+ * Professional-grade strategy analysis and lookup tables
  */
 
 #include <pybind11/pybind11.h>
@@ -40,30 +40,6 @@ py::dict deck_state_to_dict(const DeckState& deck) {
     result["cards_remaining"] = cards_remaining;
     result["total_cards"] = deck.total_cards;
     return result;
-}
-
-// Convert Python dict to DeckState
-DeckState dict_to_deck_state(const py::dict& deck_dict) {
-    DeckState deck;
-
-    if (deck_dict.contains("num_decks")) {
-        deck.num_decks = py::cast<int>(deck_dict["num_decks"]);
-    }
-
-    if (deck_dict.contains("cards_remaining")) {
-        py::dict cards = py::cast<py::dict>(deck_dict["cards_remaining"]);
-        deck.cards_remaining.clear();
-        deck.total_cards = 0;
-
-        for (const auto& item : cards) {
-            int rank = py::cast<int>(item.first);
-            int count = py::cast<int>(item.second);
-            deck.cards_remaining[rank] = count;
-            deck.total_cards += count;
-        }
-    }
-
-    return deck;
 }
 
 // Convert Python dict to RulesConfig
@@ -105,21 +81,74 @@ py::dict py_calculate_hand_value(const std::vector<int>& cards) {
     return hand_data_to_dict(result);
 }
 
-// Basic strategy wrapper
+// Enhanced basic strategy wrapper
 std::string py_basic_strategy_decision(const std::vector<int>& hand_cards,
                                       int dealer_upcard,
                                       const py::dict& rules_dict) {
     RulesConfig rules = dict_to_rules_config(rules_dict);
     Action action = BJLogicCore::basic_strategy_decision(hand_cards, dealer_upcard, rules);
+    return BJLogicCore::action_to_string(action);
+}
 
-    switch (action) {
-        case Action::STAND: return "stand";
-        case Action::HIT: return "hit";
-        case Action::DOUBLE: return "double";
-        case Action::SPLIT: return "split";
-        case Action::SURRENDER: return "surrender";
-        default: return "stand";
+// Strategy analysis wrapper
+bool py_is_basic_strategy_optimal(const std::vector<int>& hand_cards,
+                                 int dealer_upcard,
+                                 const py::dict& rules_dict,
+                                 const std::string& chosen_action_str) {
+    RulesConfig rules = dict_to_rules_config(rules_dict);
+
+    // Convert string to Action enum
+    Action chosen_action = Action::STAND;  // Default
+    if (chosen_action_str == "hit") chosen_action = Action::HIT;
+    else if (chosen_action_str == "double") chosen_action = Action::DOUBLE;
+    else if (chosen_action_str == "split") chosen_action = Action::SPLIT;
+    else if (chosen_action_str == "surrender") chosen_action = Action::SURRENDER;
+
+    return BJLogicCore::is_basic_strategy_optimal(hand_cards, dealer_upcard, rules, chosen_action);
+}
+
+// Strategy deviation cost wrapper
+double py_get_strategy_deviation_cost(const std::vector<int>& hand_cards,
+                                     int dealer_upcard,
+                                     const py::dict& rules_dict,
+                                     const std::string& chosen_action_str) {
+    RulesConfig rules = dict_to_rules_config(rules_dict);
+
+    // Convert string to Action enum
+    Action chosen_action = Action::STAND;  // Default
+    if (chosen_action_str == "hit") chosen_action = Action::HIT;
+    else if (chosen_action_str == "double") chosen_action = Action::DOUBLE;
+    else if (chosen_action_str == "split") chosen_action = Action::SPLIT;
+    else if (chosen_action_str == "surrender") chosen_action = Action::SURRENDER;
+
+    return BJLogicCore::get_strategy_deviation_cost(hand_cards, dealer_upcard, rules, chosen_action);
+}
+
+// Batch strategy analysis
+py::list py_batch_strategy_analysis(const py::list& scenarios, const py::dict& rules_dict) {
+    RulesConfig rules = dict_to_rules_config(rules_dict);
+    py::list results;
+
+    for (const auto& scenario : scenarios) {
+        py::dict scenario_dict = py::cast<py::dict>(scenario);
+        std::vector<int> hand = py::cast<std::vector<int>>(scenario_dict["hand"]);
+        int dealer_upcard = py::cast<int>(scenario_dict["dealer_upcard"]);
+
+        Action optimal_action = BJLogicCore::basic_strategy_decision(hand, dealer_upcard, rules);
+        std::string action_str = BJLogicCore::action_to_string(optimal_action);
+
+        py::dict result;
+        result["hand"] = hand;
+        result["dealer_upcard"] = dealer_upcard;
+        result["optimal_action"] = action_str;
+        result["hand_total"] = BJLogicCore::calculate_hand_value(hand).total;
+        result["is_soft"] = BJLogicCore::is_hand_soft(hand);
+        result["can_split"] = BJLogicCore::can_split_hand(hand);
+
+        results.append(result);
     }
+
+    return results;
 }
 
 // Create default deck state
@@ -142,12 +171,12 @@ py::dict py_create_rules_config() {
     return result;
 }
 
-// Test function for migration verification
-std::string test_advanced_extension() {
-    return "🚀 Advanced bjlogic structures successfully migrated to C++!";
+// Test function for Phase 2.2
+std::string test_strategy_extension() {
+    return "🎯 Complete Basic Strategy Tables successfully implemented!";
 }
 
-// Keep backward compatibility with original functions
+// Keep backward compatibility
 extern int get_card_value(const std::string &rank);
 extern std::pair<int, bool> calculate_hand_value(const std::vector<std::string> &ranks);
 
@@ -156,7 +185,7 @@ extern std::pair<int, bool> calculate_hand_value(const std::vector<std::string> 
 // =============================================================================
 
 PYBIND11_MODULE(bjlogic_cpp, m) {
-    m.doc() = "Advanced Blackjack C++ Logic - Phase 2.1 Migration";
+    m.doc() = "Advanced Blackjack C++ Logic - Phase 2.2 Complete Basic Strategy";
 
     // =================================================================
     // ENUMS
@@ -173,15 +202,31 @@ PYBIND11_MODULE(bjlogic_cpp, m) {
     // CORE FUNCTIONS
     // =================================================================
 
-    m.def("test_extension", &test_advanced_extension, "Test advanced extension");
+    m.def("test_extension", &test_strategy_extension, "Test Phase 2.2 strategy extension");
 
     m.def("calculate_hand_value", &py_calculate_hand_value,
           "Enhanced hand value calculation with full details",
           py::arg("cards"));
 
     m.def("basic_strategy_decision", &py_basic_strategy_decision,
-          "Get basic strategy decision",
+          "Get optimal basic strategy decision",
           py::arg("hand_cards"), py::arg("dealer_upcard"), py::arg("rules"));
+
+    // =================================================================
+    // STRATEGY ANALYSIS FUNCTIONS
+    // =================================================================
+
+    m.def("is_basic_strategy_optimal", &py_is_basic_strategy_optimal,
+          "Check if chosen action matches basic strategy",
+          py::arg("hand_cards"), py::arg("dealer_upcard"), py::arg("rules"), py::arg("chosen_action"));
+
+    m.def("get_strategy_deviation_cost", &py_get_strategy_deviation_cost,
+          "Get estimated cost of deviating from basic strategy",
+          py::arg("hand_cards"), py::arg("dealer_upcard"), py::arg("rules"), py::arg("chosen_action"));
+
+    m.def("batch_strategy_analysis", &py_batch_strategy_analysis,
+          "Analyze multiple scenarios at once",
+          py::arg("scenarios"), py::arg("rules"));
 
     // =================================================================
     // UTILITY FUNCTIONS
@@ -226,6 +271,6 @@ PYBIND11_MODULE(bjlogic_cpp, m) {
     // VERSION INFO
     // =================================================================
 
-    m.attr("__version__") = "2.1.0-migration";
-    m.attr("__phase__") = "Core Data Structures";
+    m.attr("__version__") = "2.2.0-strategy";
+    m.attr("__phase__") = "Complete Basic Strategy Tables";
 }

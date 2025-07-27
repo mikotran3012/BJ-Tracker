@@ -9,6 +9,7 @@
 #include <pybind11/operators.h>
 #include "bjlogic_core.hpp"
 #include "card_counting.hpp"
+#include "advanced_ev_engine.hpp"
 
 namespace py = pybind11;
 using namespace bjlogic;
@@ -374,9 +375,57 @@ PYBIND11_MODULE(bjlogic_cpp, m) {
           "Get list of available counting systems");
 
     // =================================================================
+    // ADVANCED EV ENGINE BINDINGS
+    // =================================================================
+
+    py::class_<bjlogic::DetailedEV>(m, "DetailedEV")
+        .def_readonly("stand_ev", &bjlogic::DetailedEV::stand_ev)
+        .def_readonly("hit_ev", &bjlogic::DetailedEV::hit_ev)
+        .def_readonly("double_ev", &bjlogic::DetailedEV::double_ev)
+        .def_readonly("split_ev", &bjlogic::DetailedEV::split_ev)
+        .def_readonly("surrender_ev", &bjlogic::DetailedEV::surrender_ev)
+        .def_readonly("optimal_ev", &bjlogic::DetailedEV::optimal_ev)
+        .def_readonly("true_count_adjustment", &bjlogic::DetailedEV::true_count_adjustment)
+        .def_readonly("variance", &bjlogic::DetailedEV::variance);
+
+    py::class_<bjlogic::AdvancedEVEngine>(m, "AdvancedEVEngine")
+        .def(py::init<int, double>(), py::arg("depth") = 10, py::arg("precision") = 0.0001)
+        .def("calculate_true_count_ev", &bjlogic::AdvancedEVEngine::calculate_true_count_ev)
+        .def("clear_cache", &bjlogic::AdvancedEVEngine::clear_cache)
+        .def("get_cache_size", &bjlogic::AdvancedEVEngine::get_cache_size);
+
+    // Test function for advanced EV engine
+    m.def("test_advanced_ev_engine", []() {
+        return "🎯 Advanced EV Calculation Engine successfully implemented!";
+    });
+
+    // Python-friendly wrapper that returns a dict
+    m.def("calculate_true_count_ev_dict", [](bjlogic::AdvancedEVEngine& engine,
+                                            const std::vector<int>& hand,
+                                            int dealer_upcard,
+                                            double true_count,
+                                            const py::dict& rules_dict) {
+        RulesConfig rules = dict_to_rules_config(rules_dict);
+        auto result = engine.calculate_true_count_ev(hand, dealer_upcard, true_count, rules);
+
+        py::dict py_result;
+        py_result["stand_ev"] = result.stand_ev;
+        py_result["hit_ev"] = result.hit_ev;
+        py_result["double_ev"] = result.double_ev;
+        py_result["split_ev"] = result.split_ev;
+        py_result["surrender_ev"] = result.surrender_ev;
+        py_result["optimal_ev"] = result.optimal_ev;
+        py_result["optimal_action"] = BJLogicCore::action_to_string(result.optimal_action);
+        py_result["true_count_adjustment"] = result.true_count_adjustment;
+        py_result["variance"] = result.variance;
+
+        return py_result;
+    });
+
+    // =================================================================
     // VERSION INFO
     // =================================================================
 
-    m.attr("__version__") = "2.3.0-counting";
-    m.attr("__phase__") = "Advanced Card Counting & Probability Engine";
+    m.attr("__version__") = "2.3.1-advanced-ev";
+    m.attr("__phase__") = "Advanced EV Calculation Engine";
 }

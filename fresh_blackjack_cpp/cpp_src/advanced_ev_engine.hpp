@@ -1,7 +1,7 @@
 // cpp_src/advanced_ev_engine.hpp
 /*
  * Advanced Expected Value Calculation Engine - COMPLETE PROFESSIONAL VERSION
- * Sophisticated algorithms for precise EV calculations per hand
+ * Sophisticated algorithms for precise EV calculations per hand + Dealer Probability Engine
  */
 
 #ifndef ADVANCED_EV_ENGINE_HPP
@@ -14,6 +14,7 @@
 #include <vector>
 #include <memory>
 #include <random>
+#include <chrono>
 
 namespace bjlogic {
 
@@ -56,11 +57,110 @@ struct DetailedEV {
                    late_surrender_ev(-0.5), das_adjustment(0.0) {}
 };
 
+// =============================================================================
+// DEALER PROBABILITY ENGINE STRUCTURES
+// =============================================================================
+
+struct DealerProbabilities {
+    double bust_prob;           // Probability of busting (>21)
+    double blackjack_prob;      // Probability of natural 21
+    double total_17_prob;       // Probability of ending on 17
+    double total_18_prob;       // Probability of ending on 18
+    double total_19_prob;       // Probability of ending on 19
+    double total_20_prob;       // Probability of ending on 20
+    double total_21_prob;       // Probability of ending on 21 (non-natural)
+
+    // Full distribution array [0-21] for advanced analysis
+    std::array<double, 22> total_distribution;
+
+    // Metadata
+    int calculations_performed;
+    bool from_cache;
+
+    DealerProbabilities() : bust_prob(0.0), blackjack_prob(0.0),
+                           total_17_prob(0.0), total_18_prob(0.0),
+                           total_19_prob(0.0), total_20_prob(0.0), total_21_prob(0.0),
+                           calculations_performed(0), from_cache(false) {
+        total_distribution.fill(0.0);
+    }
+
+    // Convenience method to get probability for specific total
+    double get_total_prob(int total) const {
+        if (total >= 0 && total < 22) return total_distribution[total];
+        return 0.0;
+    }
+
+    // Get combined probabilities for ranges
+    double get_range_prob(int min_total, int max_total) const {
+        double prob = 0.0;
+        for (int i = std::max(0, min_total); i <= std::min(21, max_total); ++i) {
+            prob += total_distribution[i];
+        }
+        return prob;
+    }
+};
+
+struct DeckComposition {
+    std::array<int, 13> cards_remaining;  // A,2,3,4,5,6,7,8,9,T,J,Q,K
+    int total_cards;
+
+    DeckComposition(int num_decks = 6) : total_cards(52 * num_decks) {
+        // Initialize standard composition
+        for (int i = 0; i < 9; ++i) {  // A,2-9
+            cards_remaining[i] = 4 * num_decks;
+        }
+        // 10,J,Q,K all worth 10
+        for (int i = 9; i < 13; ++i) {
+            cards_remaining[i] = 4 * num_decks;
+        }
+    }
+
+    // Remove a card and update total
+    void remove_card(int rank) {
+        if (rank >= 1 && rank <= 13 && cards_remaining[rank-1] > 0) {
+            cards_remaining[rank-1]--;
+            total_cards--;
+        }
+    }
+
+    // Add a card back (for backtracking)
+    void add_card(int rank) {
+        if (rank >= 1 && rank <= 13) {
+            cards_remaining[rank-1]++;
+            total_cards++;
+        }
+    }
+
+    // Get number of cards remaining for a rank
+    int get_remaining(int rank) const {
+        if (rank >= 1 && rank <= 13) return cards_remaining[rank-1];
+        return 0;
+    }
+
+    // Get total 10-value cards (10,J,Q,K)
+    int get_ten_cards() const {
+        return cards_remaining[9] + cards_remaining[10] + cards_remaining[11] + cards_remaining[12];
+    }
+
+    // Generate cache key based on remaining cards
+    uint64_t get_cache_key() const {
+        uint64_t key = 0;
+        for (int i = 0; i < 13; ++i) {
+            key = key * 53 + cards_remaining[i];  // 53 is prime > max cards per rank
+        }
+        return key;
+    }
+
+    // Check if deck is valid
+    bool is_valid() const {
+        return total_cards >= 0 && total_cards <= 416; // Max 8 decks
+    }
+};
+
 struct ScenarioAnalysis {
     std::vector<int> player_hand;
     int dealer_upcard;
-    CountState count_state;
-    DeckState deck_composition;
+    DeckComposition deck_composition;
     RulesConfig rules;
 
     DetailedEV basic_strategy_ev;
@@ -98,6 +198,14 @@ private:
     mutable std::unordered_map<uint64_t, DetailedEV> ev_cache;
     mutable std::unordered_map<uint64_t, double> prob_cache;
 
+    // Dealer probability cache (NEW)
+    mutable std::unordered_map<uint64_t, DealerProbabilities> dealer_prob_cache;
+
+    // Performance tracking (NEW)
+    mutable int cache_hits;
+    mutable int cache_misses;
+    mutable int recursive_calls;
+
     // Precomputed lookup tables for speed
     std::array<std::array<double, 10>, 22> dealer_outcome_matrix;
     std::array<std::array<double, 10>, 22> player_bust_matrix;
@@ -134,7 +242,35 @@ public:
                                      const RulesConfig& rules) const;
 
     // =================================================================
-    // RECURSIVE EV CALCULATION (SOPHISTICATED ALGORITHM)
+    // DEALER PROBABILITY ENGINE (NEW)
+    // =================================================================
+
+    // Main probability calculation with caching
+    DealerProbabilities calculate_dealer_probabilities_advanced(
+        int dealer_upcard,
+        const DeckComposition& deck,
+        const RulesConfig& rules) const;
+
+    // Recursive probability engine
+    DealerProbabilities calculate_dealer_probabilities_recursive(
+        const std::vector<int>& dealer_hand,
+        const DeckComposition& deck,
+        const RulesConfig& rules,
+        int depth = 0) const;
+
+    // Optimized calculation for fresh deck
+    DealerProbabilities calculate_dealer_probabilities_fresh_deck(
+        int dealer_upcard,
+        const RulesConfig& rules) const;
+
+    // Probability calculation with removed cards tracking
+    DealerProbabilities calculate_dealer_probabilities_with_removed(
+        int dealer_upcard,
+        const std::vector<int>& removed_cards,
+        const RulesConfig& rules) const;
+
+    // =================================================================
+    // SOPHISTICATED ALGORITHMS
     // =================================================================
 
     // Recursive hit EV calculation with depth control
@@ -143,12 +279,6 @@ public:
                                     const DeckState& deck,
                                     const RulesConfig& rules,
                                     int depth = 0) const;
-
-    // Recursive dealer outcome calculation
-    double calculate_dealer_final_ev(int dealer_upcard,
-                                   const std::vector<int>& dealer_hand,
-                                   const DeckState& deck,
-                                   const RulesConfig& rules) const;
 
     // Split EV with recursive analysis for multiple splits
     double calculate_split_ev_advanced(const std::vector<int>& pair_hand,
@@ -170,9 +300,10 @@ public:
     double calculate_player_bust_probability(const std::vector<int>& hand,
                                            const DeckState& deck) const;
 
-    // Blackjack probability calculations
-    double calculate_dealer_blackjack_prob(int dealer_upcard,
-                                         const DeckState& deck) const;
+    // Insurance EV with precise calculations
+    double calculate_insurance_ev(int dealer_upcard,
+                                const DeckState& deck,
+                                double bet_amount = 1.0) const;
 
     // =================================================================
     // ADVANCED ANALYSIS METHODS
@@ -190,11 +321,6 @@ public:
                                   const CardCounter& counter,
                                   const RulesConfig& rules,
                                   int session_length_hours = 4) const;
-
-    // Insurance EV with precise calculations
-    double calculate_insurance_ev(int dealer_upcard,
-                                const DeckState& deck,
-                                double bet_amount = 1.0) const;
 
     // =================================================================
     // OPTIMIZATION AND TUNING
@@ -226,11 +352,6 @@ public:
     void clear_cache() const;
     size_t get_cache_size() const;
     void precompute_tables();
-
-    // Hash functions for caching
-    uint64_t hash_scenario(const std::vector<int>& hand,
-                          int dealer_upcard,
-                          const DeckState& deck) const;
 
     // Engine configuration
     void set_simulation_depth(int depth) { simulation_depth = depth; }
@@ -274,21 +395,20 @@ private:
                                    const DeckState& deck,
                                    const RulesConfig& rules) const;
 
-    double calculate_dealer_final_probability(int dealer_upcard,
-                                            int final_total,
-                                            const DeckState& deck,
-                                            const RulesConfig& rules) const;
+    // =================================================================
+    // DEALER PROBABILITY HELPER METHODS (NEW)
+    // =================================================================
 
-    double calculate_dealer_total_recursive(int upcard,
-                                          const std::vector<int>& dealer_hand,
-                                          int target_total,
-                                          const DeckState& deck,
-                                          const RulesConfig& rules) const;
+    // Cache key generation for probability results
+    uint64_t generate_probability_cache_key(
+        const std::vector<int>& dealer_hand,
+        const DeckComposition& deck,
+        const RulesConfig& rules) const;
 
-    double calculate_dealer_bust_recursive(int upcard,
-                                         const std::vector<int>& dealer_hand,
-                                         const DeckState& deck,
-                                         const RulesConfig& rules) const;
+    // Helper methods for dealer probability calculations
+    bool dealer_must_hit(const std::vector<int>& dealer_hand, const RulesConfig& rules) const;
+    int calculate_dealer_total(const std::vector<int>& dealer_hand) const;
+    bool is_dealer_soft(const std::vector<int>& dealer_hand) const;
 
     // =================================================================
     // TRUE COUNT AND COMPOSITION ADJUSTMENTS
@@ -324,6 +444,9 @@ private:
 
     // Simple hash for basic scenarios
     uint64_t hash_scenario(const std::vector<int>& hand, int dealer_upcard) const;
+    uint64_t hash_scenario(const std::vector<int>& hand,
+                          int dealer_upcard,
+                          const DeckState& deck) const;
 };
 
 // =============================================================================

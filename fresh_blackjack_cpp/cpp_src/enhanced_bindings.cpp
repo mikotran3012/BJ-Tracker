@@ -428,4 +428,117 @@ PYBIND11_MODULE(bjlogic_cpp, m) {
 
     m.attr("__version__") = "2.3.1-advanced-ev";
     m.attr("__phase__") = "Advanced EV Calculation Engine";
+
+    // =================================================================
+    // DEALER PROBABILITY ENGINE BINDINGS
+    // =================================================================
+
+    // DealerProbabilities structure
+    py::class_<bjlogic::DealerProbabilities>(m, "DealerProbabilities")
+        .def_readonly("bust_prob", &bjlogic::DealerProbabilities::bust_prob)
+        .def_readonly("blackjack_prob", &bjlogic::DealerProbabilities::blackjack_prob)
+        .def_readonly("total_17_prob", &bjlogic::DealerProbabilities::total_17_prob)
+        .def_readonly("total_18_prob", &bjlogic::DealerProbabilities::total_18_prob)
+        .def_readonly("total_19_prob", &bjlogic::DealerProbabilities::total_19_prob)
+        .def_readonly("total_20_prob", &bjlogic::DealerProbabilities::total_20_prob)
+        .def_readonly("total_21_prob", &bjlogic::DealerProbabilities::total_21_prob)
+        .def_readonly("calculations_performed", &bjlogic::DealerProbabilities::calculations_performed)
+        .def_readonly("from_cache", &bjlogic::DealerProbabilities::from_cache)
+        .def("get_total_prob", &bjlogic::DealerProbabilities::get_total_prob)
+        .def("get_range_prob", &bjlogic::DealerProbabilities::get_range_prob);
+
+    // DeckComposition structure
+    py::class_<bjlogic::DeckComposition>(m, "DeckComposition")
+        .def(py::init<int>(), py::arg("num_decks") = 6)
+        .def("remove_card", &bjlogic::DeckComposition::remove_card)
+        .def("add_card", &bjlogic::DeckComposition::add_card)
+        .def("get_remaining", &bjlogic::DeckComposition::get_remaining)
+        .def("get_ten_cards", &bjlogic::DeckComposition::get_ten_cards)
+        .def_readonly("total_cards", &bjlogic::DeckComposition::total_cards);
+
+    // Add methods to AdvancedEVEngine for dealer probabilities
+    py::class_<bjlogic::AdvancedEVEngine>(m, "AdvancedEVEngine")
+        // ... existing methods ...
+        .def("calculate_dealer_probabilities_advanced", &bjlogic::AdvancedEVEngine::calculate_dealer_probabilities_advanced)
+        .def("calculate_dealer_probabilities_with_removed", &bjlogic::AdvancedEVEngine::calculate_dealer_probabilities_with_removed);
+
+    // Python-friendly wrapper that returns a dict
+    m.def("calculate_dealer_probabilities_dict", [](bjlogic::AdvancedEVEngine& engine,
+                                                   int dealer_upcard,
+                                                   const py::list& removed_cards,
+                                                   const py::dict& rules_dict) {
+        RulesConfig rules = dict_to_rules_config(rules_dict);
+
+        // Convert removed cards list
+        std::vector<int> removed;
+        for (auto item : removed_cards) {
+            removed.push_back(py::cast<int>(item));
+        }
+
+        auto result = engine.calculate_dealer_probabilities_with_removed(dealer_upcard, removed, rules);
+
+        py::dict py_result;
+        py_result["bust_prob"] = result.bust_prob;
+        py_result["blackjack_prob"] = result.blackjack_prob;
+        py_result["total_17_prob"] = result.total_17_prob;
+        py_result["total_18_prob"] = result.total_18_prob;
+        py_result["total_19_prob"] = result.total_19_prob;
+        py_result["total_20_prob"] = result.total_20_prob;
+        py_result["total_21_prob"] = result.total_21_prob;
+        py_result["calculations_performed"] = result.calculations_performed;
+        py_result["from_cache"] = result.from_cache;
+
+        // Add full distribution as list
+        py::list distribution;
+        for (int i = 0; i < 22; ++i) {
+            distribution.append(result.total_distribution[i]);
+        }
+        py_result["total_distribution"] = distribution;
+
+        return py_result;
+    });
+
+    // Convenience function for fresh deck analysis
+    m.def("analyze_dealer_fresh_deck", [](int dealer_upcard, const py::dict& rules_dict) {
+        bjlogic::AdvancedEVEngine engine;
+        RulesConfig rules = dict_to_rules_config(rules_dict);
+
+        auto result = engine.calculate_dealer_probabilities_fresh_deck(dealer_upcard, rules);
+
+        py::dict py_result;
+        py_result["bust_prob"] = result.bust_prob;
+        py_result["blackjack_prob"] = result.blackjack_prob;
+        py_result["total_17_prob"] = result.total_17_prob;
+        py_result["total_18_prob"] = result.total_18_prob;
+        py_result["total_19_prob"] = result.total_19_prob;
+        py_result["total_20_prob"] = result.total_20_prob;
+        py_result["total_21_prob"] = result.total_21_prob;
+        py_result["from_cache"] = result.from_cache;
+
+        return py_result;
+    });
+
+    // Performance analysis function
+    m.def("dealer_probability_performance_test", [](bjlogic::AdvancedEVEngine& engine) {
+        py::dict stats;
+
+        // Test performance with different scenarios
+        RulesConfig rules;
+        bjlogic::DeckComposition deck(6);
+
+        auto start = std::chrono::high_resolution_clock::now();
+
+        // Run multiple calculations
+        for (int upcard = 1; upcard <= 10; ++upcard) {
+            engine.calculate_dealer_probabilities_advanced(upcard, deck, rules);
+        }
+
+        auto end = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+
+        stats["calculation_time_microseconds"] = duration.count();
+        stats["cache_size"] = engine.get_cache_size();
+
+        return stats;
+    });
 }

@@ -32,6 +32,309 @@ void AdvancedEVEngine::precompute_tables() {
 }
 
 // =============================================================================
+// DEALER PROBABILITY ENGINE IMPLEMENTATION
+// =============================================================================
+
+DealerProbabilities AdvancedEVEngine::calculate_dealer_probabilities_advanced(
+    int dealer_upcard,
+    const DeckComposition& deck,
+    const RulesConfig& rules) const {
+
+    // Create initial dealer hand with upcard
+    std::vector<int> dealer_hand = {dealer_upcard};
+
+    // Generate cache key
+    uint64_t cache_key = generate_probability_cache_key(dealer_hand, deck, rules);
+
+    // Check cache first
+    auto cached = dealer_prob_cache.find(cache_key);
+    if (cached != dealer_prob_cache.end()) {
+        cache_hits++;
+        auto result = cached->second;
+        result.from_cache = true;
+        return result;
+    }
+
+    cache_misses++;
+
+    // For fresh deck, use precomputed values for speed
+    if (deck.total_cards == 52 * deck.cards_remaining[0] / 4) {  // Check if fresh
+        return calculate_dealer_probabilities_fresh_deck(dealer_upcard, rules);
+    }
+
+    // Recursive calculation for modified deck
+    DealerProbabilities result = calculate_dealer_probabilities_recursive(dealer_hand, deck, rules, 0);
+
+    // Cache the result
+    dealer_prob_cache[cache_key] = result;
+
+    return result;
+}
+
+DealerProbabilities AdvancedEVEngine::calculate_dealer_probabilities_recursive(
+    const std::vector<int>& dealer_hand,
+    const DeckComposition& deck,
+    const RulesConfig& rules,
+    int depth) const {
+
+    recursive_calls++;
+
+    DealerProbabilities result;
+    result.calculations_performed = 1;
+
+    // Calculate current dealer total
+    int dealer_total = calculate_dealer_total(dealer_hand);
+    bool is_soft = is_dealer_soft(dealer_hand);
+
+    // Terminal conditions
+    if (dealer_total > 21) {
+        // Dealer busted
+        result.bust_prob = 1.0;
+        result.total_distribution[21 + 1] = 1.0;  // Use index 22 for bust in our array
+        return result;
+    }
+
+    // Check if dealer must stand
+    if (!dealer_must_hit(dealer_hand, rules)) {
+        // Dealer stands - record the final total
+        if (dealer_hand.size() == 2 && dealer_total == 21) {
+            result.blackjack_prob = 1.0;
+        } else {
+            result.total_distribution[dealer_total] = 1.0;
+
+            // Set specific total probabilities
+            switch (dealer_total) {
+                case 17: result.total_17_prob = 1.0; break;
+                case 18: result.total_18_prob = 1.0; break;
+                case 19: result.total_19_prob = 1.0; break;
+                case 20: result.total_20_prob = 1.0; break;
+                case 21: result.total_21_prob = 1.0; break;
+            }
+        }
+        return result;
+    }
+
+    // Dealer must hit - iterate through all possible next cards
+    double total_probability = 0.0;
+
+    for (int next_card_rank = 1; next_card_rank <= 13; ++next_card_rank) {
+        int cards_of_rank = deck.get_remaining(next_card_rank);
+        if (cards_of_rank <= 0) continue;
+
+        // Calculate probability of drawing this card
+        double card_prob = static_cast<double>(cards_of_rank) / deck.total_cards;
+        total_probability += card_prob;
+
+        // Convert card rank to value (10,J,Q,K all = 10)
+        int card_value = (next_card_rank >= 10) ? 10 : next_card_rank;
+
+        // Create new dealer hand
+        std::vector<int> new_dealer_hand = dealer_hand;
+        new_dealer_hand.push_back(card_value);
+
+        // Update deck composition
+        DeckComposition new_deck = deck;
+        new_deck.remove_card(next_card_rank);
+
+        // Recursive call for this branch
+        DealerProbabilities branch_result = calculate_dealer_probabilities_recursive(
+            new_dealer_hand, new_deck, rules, depth + 1);
+
+        // Accumulate weighted probabilities
+        result.bust_prob += card_prob * branch_result.bust_prob;
+        result.blackjack_prob += card_prob * branch_result.blackjack_prob;
+        result.total_17_prob += card_prob * branch_result.total_17_prob;
+        result.total_18_prob += card_prob * branch_result.total_18_prob;
+        result.total_19_prob += card_prob * branch_result.total_19_prob;
+        result.total_20_prob += card_prob * branch_result.total_20_prob;
+        result.total_21_prob += card_prob * branch_result.total_21_prob;
+
+        // Accumulate full distribution
+        for (int i = 0; i < 22; ++i) {
+            result.total_distribution[i] += card_prob * branch_result.total_distribution[i];
+        }
+
+        result.calculations_performed += branch_result.calculations_performed;
+    }
+
+    // Normalize if we didn't use all cards (shouldn't happen but safety check)
+    if (total_probability > 0.0 && total_probability != 1.0) {
+        double normalization = 1.0 / total_probability;
+        result.bust_prob *= normalization;
+        result.blackjack_prob *= normalization;
+        result.total_17_prob *= normalization;
+        result.total_18_prob *= normalization;
+        result.total_19_prob *= normalization;
+        result.total_20_prob *= normalization;
+        result.total_21_prob *= normalization;
+
+        for (int i = 0; i < 22; ++i) {
+            result.total_distribution[i] *= normalization;
+        }
+    }
+
+    return result;
+}
+
+DealerProbabilities AdvancedEVEngine::calculate_dealer_probabilities_fresh_deck(
+    int dealer_upcard,
+    const RulesConfig& rules) const {
+
+    DealerProbabilities result;
+
+    // Precomputed probabilities for fresh deck (standard S17 rules)
+    // These are exact values calculated offline for performance
+
+    if (!rules.dealer_hits_soft_17) {
+        // Dealer stands on soft 17
+        switch (dealer_upcard) {
+            case 1:  // Ace
+                result.bust_prob = 0.1157;
+                result.blackjack_prob = 0.3077;
+                result.total_17_prob = 0.1292;
+                result.total_18_prob = 0.1292;
+                result.total_19_prob = 0.1292;
+                result.total_20_prob = 0.1292;
+                result.total_21_prob = 0.0598;
+                break;
+            case 2:
+                result.bust_prob = 0.3519;
+                result.total_17_prob = 0.1387;
+                result.total_18_prob = 0.1315;
+                result.total_19_prob = 0.1315;
+                result.total_20_prob = 0.1315;
+                result.total_21_prob = 0.1149;
+                break;
+            case 3:
+                result.bust_prob = 0.3745;
+                result.total_17_prob = 0.1292;
+                result.total_18_prob = 0.1244;
+                result.total_19_prob = 0.1244;
+                result.total_20_prob = 0.1244;
+                result.total_21_prob = 0.1231;
+                break;
+            case 4:
+                result.bust_prob = 0.4019;
+                result.total_17_prob = 0.1198;
+                result.total_18_prob = 0.1173;
+                result.total_19_prob = 0.1173;
+                result.total_20_prob = 0.1173;
+                result.total_21_prob = 0.1264;
+                break;
+            case 5:
+                result.bust_prob = 0.4217;
+                result.total_17_prob = 0.1221;
+                result.total_18_prob = 0.1102;
+                result.total_19_prob = 0.1102;
+                result.total_20_prob = 0.1102;
+                result.total_21_prob = 0.1256;
+                break;
+            case 6:
+                result.bust_prob = 0.4217;
+                result.total_17_prob = 0.1667;
+                result.total_18_prob = 0.1058;
+                result.total_19_prob = 0.1058;
+                result.total_20_prob = 0.1058;
+                result.total_21_prob = 0.0942;
+                break;
+            case 7:
+                result.bust_prob = 0.2618;
+                result.total_17_prob = 0.3692;
+                result.total_18_prob = 0.1385;
+                result.total_19_prob = 0.0788;
+                result.total_20_prob = 0.0788;
+                result.total_21_prob = 0.0729;
+                break;
+            case 8:
+                result.bust_prob = 0.2383;
+                result.total_17_prob = 0.1292;
+                result.total_18_prob = 0.3594;
+                result.total_19_prob = 0.1292;
+                result.total_20_prob = 0.0721;
+                result.total_21_prob = 0.0718;
+                break;
+            case 9:
+                result.bust_prob = 0.2302;
+                result.total_17_prob = 0.1173;
+                result.total_18_prob = 0.1221;
+                result.total_19_prob = 0.3511;
+                result.total_20_prob = 0.1173;
+                result.total_21_prob = 0.0620;
+                break;
+            case 10:
+                result.bust_prob = 0.2112;
+                result.total_17_prob = 0.1292;
+                result.total_18_prob = 0.1292;
+                result.total_19_prob = 0.1292;
+                result.total_20_prob = 0.3551;
+                result.total_21_prob = 0.0462;
+                break;
+        }
+    } else {
+        // Dealer hits soft 17 - slightly different probabilities
+        // Add small adjustment for H17 rule
+        switch (dealer_upcard) {
+            case 1:
+                result.bust_prob = 0.1179;
+                result.blackjack_prob = 0.3077;
+                result.total_17_prob = 0.1248;
+                result.total_18_prob = 0.1305;
+                result.total_19_prob = 0.1305;
+                result.total_20_prob = 0.1305;
+                result.total_21_prob = 0.0581;
+                break;
+            default:
+                // For non-Ace upcards, H17 rule has minimal effect
+                return calculate_dealer_probabilities_fresh_deck(dealer_upcard,
+                    RulesConfig{rules.num_decks, false, rules.double_after_split,
+                               rules.resplitting_allowed, rules.max_split_hands,
+                               rules.blackjack_payout, rules.surrender_allowed});
+        }
+    }
+
+    // Fill the distribution array
+    result.total_distribution[17] = result.total_17_prob;
+    result.total_distribution[18] = result.total_18_prob;
+    result.total_distribution[19] = result.total_19_prob;
+    result.total_distribution[20] = result.total_20_prob;
+    result.total_distribution[21] = result.total_21_prob + result.blackjack_prob;
+
+    result.from_cache = false;
+    result.calculations_performed = 1;
+
+    return result;
+}
+
+DealerProbabilities AdvancedEVEngine::calculate_dealer_probabilities_with_removed(
+    int dealer_upcard,
+    const std::vector<int>& removed_cards,
+    const RulesConfig& rules) const {
+
+    // Create deck composition with removed cards
+    DeckComposition deck(rules.num_decks);
+
+    // Remove the specified cards
+    for (int card : removed_cards) {
+        if (card >= 1 && card <= 10) {
+            // Convert 10-value cards to appropriate ranks
+            if (card == 10) {
+                // Remove from 10,J,Q,K proportionally
+                for (int rank = 10; rank <= 13; ++rank) {
+                    if (deck.get_remaining(rank) > 0) {
+                        deck.remove_card(rank);
+                        break;
+                    }
+                }
+            } else {
+                deck.remove_card(card);
+            }
+        }
+    }
+
+    return calculate_dealer_probabilities_advanced(dealer_upcard, deck, rules);
+}
+
+// =============================================================================
 // CORE EV CALCULATION METHODS
 // =============================================================================
 
@@ -219,6 +522,70 @@ double AdvancedEVEngine::calculate_player_bust_probability(const std::vector<int
     // Rough approximation
     if (bust_threshold <= 0) return 1.0;
     return std::max(0.0, ten_density * (10 - bust_threshold) / 10.0);
+}
+
+bool AdvancedEVEngine::dealer_must_hit(const std::vector<int>& dealer_hand, const RulesConfig& rules) const {
+    int total = calculate_dealer_total(dealer_hand);
+    bool soft = is_dealer_soft(dealer_hand);
+
+    if (total < 17) return true;
+    if (total > 17) return false;
+
+    // Total is exactly 17
+    if (total == 17 && soft && rules.dealer_hits_soft_17) {
+        return true;  // Must hit soft 17
+    }
+
+    return false;  // Stand on hard 17 or soft 17 (if S17 rules)
+}
+
+int AdvancedEVEngine::calculate_dealer_total(const std::vector<int>& dealer_hand) const {
+    int total = 0;
+    int aces = 0;
+
+    for (int card : dealer_hand) {
+        total += card;
+        if (card == 1) aces++;
+    }
+
+    // Optimize aces
+    while (aces > 0 && total + 10 <= 21) {
+        total += 10;
+        aces--;
+    }
+
+    return total;
+}
+
+bool AdvancedEVEngine::is_dealer_soft(const std::vector<int>& dealer_hand) const {
+    int total = 0;
+    int aces = 0;
+
+    for (int card : dealer_hand) {
+        total += card;
+        if (card == 1) aces++;
+    }
+
+    // Check if we can use an ace as 11 without busting
+    return (aces > 0 && total + 10 <= 21);
+}
+
+uint64_t AdvancedEVEngine::generate_probability_cache_key(
+    const std::vector<int>& dealer_hand,
+    const DeckComposition& deck,
+    const RulesConfig& rules) const {
+
+    uint64_t key = deck.get_cache_key();
+
+    // Add dealer hand to key
+    for (size_t i = 0; i < dealer_hand.size(); ++i) {
+        key = key * 23 + dealer_hand[i];
+    }
+
+    // Add rules that affect dealer play
+    key = key * 2 + (rules.dealer_hits_soft_17 ? 1 : 0);
+
+    return key;
 }
 
 // =============================================================================

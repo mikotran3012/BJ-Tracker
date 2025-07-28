@@ -1,7 +1,8 @@
-// cpp_src/enhanced_bindings.cpp
+// cpp_src/enhanced_bindings.cpp - FIXED VERSION
 /*
  * Phase 2.3: Enhanced PyBind11 bindings with card counting
  * Professional-grade strategy analysis and card counting
+ * FIXED: Removed duplicate AdvancedEVEngine binding
  */
 
 #include <pybind11/pybind11.h>
@@ -375,9 +376,10 @@ PYBIND11_MODULE(bjlogic_cpp, m) {
           "Get list of available counting systems");
 
     // =================================================================
-    // ADVANCED EV ENGINE BINDINGS
+    // ADVANCED EV ENGINE BINDINGS - SINGLE DEFINITION
     // =================================================================
 
+    // DetailedEV structure
     py::class_<bjlogic::DetailedEV>(m, "DetailedEV")
         .def_readonly("stand_ev", &bjlogic::DetailedEV::stand_ev)
         .def_readonly("hit_ev", &bjlogic::DetailedEV::hit_ev)
@@ -387,51 +389,6 @@ PYBIND11_MODULE(bjlogic_cpp, m) {
         .def_readonly("optimal_ev", &bjlogic::DetailedEV::optimal_ev)
         .def_readonly("true_count_adjustment", &bjlogic::DetailedEV::true_count_adjustment)
         .def_readonly("variance", &bjlogic::DetailedEV::variance);
-
-    py::class_<bjlogic::AdvancedEVEngine>(m, "AdvancedEVEngine")
-        .def(py::init<int, double>(), py::arg("depth") = 10, py::arg("precision") = 0.0001)
-        .def("calculate_true_count_ev", &bjlogic::AdvancedEVEngine::calculate_true_count_ev)
-        .def("clear_cache", &bjlogic::AdvancedEVEngine::clear_cache)
-        .def("get_cache_size", &bjlogic::AdvancedEVEngine::get_cache_size);
-
-    // Test function for advanced EV engine
-    m.def("test_advanced_ev_engine", []() {
-        return "🎯 Advanced EV Calculation Engine successfully implemented!";
-    });
-
-    // Python-friendly wrapper that returns a dict
-    m.def("calculate_true_count_ev_dict", [](bjlogic::AdvancedEVEngine& engine,
-                                            const std::vector<int>& hand,
-                                            int dealer_upcard,
-                                            double true_count,
-                                            const py::dict& rules_dict) {
-        RulesConfig rules = dict_to_rules_config(rules_dict);
-        auto result = engine.calculate_true_count_ev(hand, dealer_upcard, true_count, rules);
-
-        py::dict py_result;
-        py_result["stand_ev"] = result.stand_ev;
-        py_result["hit_ev"] = result.hit_ev;
-        py_result["double_ev"] = result.double_ev;
-        py_result["split_ev"] = result.split_ev;
-        py_result["surrender_ev"] = result.surrender_ev;
-        py_result["optimal_ev"] = result.optimal_ev;
-        py_result["optimal_action"] = BJLogicCore::action_to_string(result.optimal_action);
-        py_result["true_count_adjustment"] = result.true_count_adjustment;
-        py_result["variance"] = result.variance;
-
-        return py_result;
-    });
-
-    // =================================================================
-    // VERSION INFO
-    // =================================================================
-
-    m.attr("__version__") = "2.3.1-advanced-ev";
-    m.attr("__phase__") = "Advanced EV Calculation Engine";
-
-    // =================================================================
-    // DEALER PROBABILITY ENGINE BINDINGS
-    // =================================================================
 
     // DealerProbabilities structure
     py::class_<bjlogic::DealerProbabilities>(m, "DealerProbabilities")
@@ -456,13 +413,44 @@ PYBIND11_MODULE(bjlogic_cpp, m) {
         .def("get_ten_cards", &bjlogic::DeckComposition::get_ten_cards)
         .def_readonly("total_cards", &bjlogic::DeckComposition::total_cards);
 
-    // Add methods to AdvancedEVEngine for dealer probabilities
+    // AdvancedEVEngine - SINGLE DEFINITION ONLY
     py::class_<bjlogic::AdvancedEVEngine>(m, "AdvancedEVEngine")
-        // ... existing methods ...
+        .def(py::init<int, double>(), py::arg("depth") = 10, py::arg("precision") = 0.0001)
+        .def("calculate_true_count_ev", &bjlogic::AdvancedEVEngine::calculate_true_count_ev)
         .def("calculate_dealer_probabilities_advanced", &bjlogic::AdvancedEVEngine::calculate_dealer_probabilities_advanced)
-        .def("calculate_dealer_probabilities_with_removed", &bjlogic::AdvancedEVEngine::calculate_dealer_probabilities_with_removed);
+        .def("calculate_dealer_probabilities_with_removed", &bjlogic::AdvancedEVEngine::calculate_dealer_probabilities_with_removed)
+        .def("clear_cache", &bjlogic::AdvancedEVEngine::clear_cache)
+        .def("get_cache_size", &bjlogic::AdvancedEVEngine::get_cache_size);
 
-    // Python-friendly wrapper that returns a dict
+    // Test function for advanced EV engine
+    m.def("test_advanced_ev_engine", []() {
+        return "🎯 Advanced EV Calculation Engine successfully implemented!";
+    });
+
+    // Python-friendly wrapper that returns a dict for EV calculations
+    m.def("calculate_true_count_ev_dict", [](bjlogic::AdvancedEVEngine& engine,
+                                            const std::vector<int>& hand,
+                                            int dealer_upcard,
+                                            double true_count,
+                                            const py::dict& rules_dict) {
+        RulesConfig rules = dict_to_rules_config(rules_dict);
+        auto result = engine.calculate_true_count_ev(hand, dealer_upcard, true_count, rules);
+
+        py::dict py_result;
+        py_result["stand_ev"] = result.stand_ev;
+        py_result["hit_ev"] = result.hit_ev;
+        py_result["double_ev"] = result.double_ev;
+        py_result["split_ev"] = result.split_ev;
+        py_result["surrender_ev"] = result.surrender_ev;
+        py_result["optimal_ev"] = result.optimal_ev;
+        py_result["optimal_action"] = BJLogicCore::action_to_string(result.optimal_action);
+        py_result["true_count_adjustment"] = result.true_count_adjustment;
+        py_result["variance"] = result.variance;
+
+        return py_result;
+    });
+
+    // Python-friendly wrapper for dealer probabilities
     m.def("calculate_dealer_probabilities_dict", [](bjlogic::AdvancedEVEngine& engine,
                                                    int dealer_upcard,
                                                    const py::list& removed_cards,
@@ -541,4 +529,11 @@ PYBIND11_MODULE(bjlogic_cpp, m) {
 
         return stats;
     });
+
+    // =================================================================
+    // VERSION INFO
+    // =================================================================
+
+    m.attr("__version__") = "2.3.1-advanced-ev";
+    m.attr("__phase__") = "Advanced EV Calculation Engine with Dealer Probabilities";
 }

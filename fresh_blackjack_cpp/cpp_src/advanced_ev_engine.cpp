@@ -1,7 +1,7 @@
-// cpp_src/advanced_ev_engine.cpp
+// cpp_src/advanced_ev_engine.cpp - FIXED VERSION
 /*
  * Advanced Expected Value Calculation Engine Implementation
- * Professional version - matches complex header
+ * Professional version - COMPILATION ERRORS FIXED
  */
 
 #include "advanced_ev_engine.hpp"
@@ -17,7 +17,8 @@ namespace bjlogic {
 
 AdvancedEVEngine::AdvancedEVEngine(int depth, double precision)
     : simulation_depth(depth), precision_threshold(precision),
-      use_composition_dependent(true), use_variance_reduction(true) {
+      use_composition_dependent(true), use_variance_reduction(true),
+      cache_hits(0), cache_misses(0), recursive_calls(0) {
     precompute_tables();
 }
 
@@ -58,7 +59,7 @@ DealerProbabilities AdvancedEVEngine::calculate_dealer_probabilities_advanced(
     cache_misses++;
 
     // For fresh deck, use precomputed values for speed
-    if (deck.total_cards == 52 * deck.cards_remaining[0] / 4) {  // Check if fresh
+    if (is_fresh_deck(deck)) {
         return calculate_dealer_probabilities_fresh_deck(dealer_upcard, rules);
     }
 
@@ -285,10 +286,10 @@ DealerProbabilities AdvancedEVEngine::calculate_dealer_probabilities_fresh_deck(
                 break;
             default:
                 // For non-Ace upcards, H17 rule has minimal effect
-                return calculate_dealer_probabilities_fresh_deck(dealer_upcard,
-                    RulesConfig{rules.num_decks, false, rules.double_after_split,
-                               rules.resplitting_allowed, rules.max_split_hands,
-                               rules.blackjack_payout, rules.surrender_allowed});
+                // Create a temporary S17 rules config
+                RulesConfig s17_rules = rules;
+                s17_rules.dealer_hits_soft_17 = false;
+                return calculate_dealer_probabilities_fresh_deck(dealer_upcard, s17_rules);
         }
     }
 
@@ -570,6 +571,27 @@ bool AdvancedEVEngine::is_dealer_soft(const std::vector<int>& dealer_hand) const
     return (aces > 0 && total + 10 <= 21);
 }
 
+// Add missing helper method
+bool AdvancedEVEngine::is_fresh_deck(const DeckComposition& deck) const {
+    // Check if deck is in fresh state (all cards at expected counts)
+    int expected_per_rank = deck.total_cards / 52 * 4;
+
+    for (int rank = 1; rank <= 9; ++rank) {
+        if (deck.get_remaining(rank) != expected_per_rank) {
+            return false;
+        }
+    }
+
+    // Check 10-value cards (should be 4x as many)
+    int expected_tens = expected_per_rank * 4;
+    int actual_tens = 0;
+    for (int rank = 10; rank <= 13; ++rank) {
+        actual_tens += deck.get_remaining(rank);
+    }
+
+    return actual_tens == expected_tens;
+}
+
 uint64_t AdvancedEVEngine::generate_probability_cache_key(
     const std::vector<int>& dealer_hand,
     const DeckComposition& deck,
@@ -659,10 +681,11 @@ void AdvancedEVEngine::determine_optimal_action(DetailedEV& ev) const {
 void AdvancedEVEngine::clear_cache() const {
     ev_cache.clear();
     prob_cache.clear();
+    dealer_prob_cache.clear();
 }
 
 size_t AdvancedEVEngine::get_cache_size() const {
-    return ev_cache.size() + prob_cache.size();
+    return ev_cache.size() + prob_cache.size() + dealer_prob_cache.size();
 }
 
 uint64_t AdvancedEVEngine::hash_scenario(const std::vector<int>& hand,
@@ -720,7 +743,5 @@ double AdvancedEVEngine::calculate_risk_of_ruin(double bankroll,
     if (advantage <= 0) return 1.0;
     return std::exp(-2.0 * advantage * bankroll / (variance * bet_size));
 }
-
-// Add other placeholder methods as needed...
 
 } // namespace bjlogic

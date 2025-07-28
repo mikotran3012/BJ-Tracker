@@ -1,4 +1,4 @@
-// cpp_src/advanced_ev_engine.hpp
+// cpp_src/advanced_ev_engine.hpp - FIXED VERSION
 /*
  * Advanced Expected Value Calculation Engine - COMPLETE PROFESSIONAL VERSION
  * Sophisticated algorithms for precise EV calculations per hand + Dealer Probability Engine
@@ -409,6 +409,9 @@ private:
     bool dealer_must_hit(const std::vector<int>& dealer_hand, const RulesConfig& rules) const;
     int calculate_dealer_total(const std::vector<int>& dealer_hand) const;
     bool is_dealer_soft(const std::vector<int>& dealer_hand) const;
+
+    // MISSING METHOD - ADD THIS
+    bool is_fresh_deck(const DeckComposition& deck) const;
 
     // =================================================================
     // TRUE COUNT AND COMPOSITION ADJUSTMENTS

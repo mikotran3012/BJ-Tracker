@@ -1245,4 +1245,153 @@ std::pair<double, double> AdvancedEVEngine::calculate_ev_confidence_interval(dou
     return std::make_pair(ev - margin, ev + margin);
 }
 
+// 🔧 ADD the missing function BEFORE calculate_ev_with_provided_composition
+
+double AdvancedEVEngine::calculate_split_aces_one_card_ev(int dealer_upcard,
+                                                         const DeckState& deck,
+                                                         const RulesConfig& rules) const {
+    double total_ev = 0.0;
+    double total_probability = 0.0;
+
+    // Enumerate all possible single cards to go with each Ace
+    for (const auto& card_pair : deck.cards_remaining) {
+        int card_rank = card_pair.first;
+        int cards_available = card_pair.second;
+
+        if (cards_available <= 0) continue;
+
+        double card_prob = static_cast<double>(cards_available) / deck.total_cards;
+        total_probability += card_prob;
+
+        int card_value = (card_rank >= 10) ? 10 : card_rank;
+
+        // Create final hand: Ace + one card (no more cards allowed)
+        std::vector<int> final_hand = {1, card_value};
+
+        // Update deck for this scenario
+        DeckState new_deck = deck;
+        new_deck.cards_remaining[card_rank]--;
+        new_deck.total_cards--;
+
+        // Calculate stand EV for this final hand (must stand after split Aces)
+        double hand_ev = calculate_stand_ev_recursive(final_hand, dealer_upcard, new_deck, rules);
+
+        total_ev += card_prob * hand_ev;
+    }
+
+    if (total_probability > 0.0) {
+        total_ev /= total_probability;
+    }
+
+    // Return EV for both hands (split creates 2 hands)
+    return total_ev;
+}
+
+// ✅ NOW the calculate_ev_with_provided_composition function (FIXED)
+DetailedEV AdvancedEVEngine::calculate_ev_with_provided_composition(
+    const std::vector<int>& player_hand,
+    int dealer_upcard,
+    const DeckState& provided_deck,  // FROM YOUR PYTHON API
+    const RulesConfig& rules,
+    const CardCounter& counter) const {
+
+    DetailedEV result;
+
+    // Create playing deck by removing player and dealer cards
+    DeckState playing_deck = provided_deck;
+
+    // Remove player cards
+    for (int card : player_hand) {
+        if (playing_deck.cards_remaining.find(card) != playing_deck.cards_remaining.end() &&
+            playing_deck.cards_remaining[card] > 0) {
+            playing_deck.cards_remaining[card]--;
+            playing_deck.total_cards--;
+        }
+    }
+
+    // Remove dealer upcard
+    if (playing_deck.cards_remaining.find(dealer_upcard) != playing_deck.cards_remaining.end() &&
+        playing_deck.cards_remaining[dealer_upcard] > 0) {
+        playing_deck.cards_remaining[dealer_upcard]--;
+        playing_deck.total_cards--;
+    }
+
+    // 🔥 CALCULATE ALL EVs WITH EXACT COMPOSITION
+
+    // Stand EV using exact dealer probabilities
+    result.stand_ev = calculate_stand_ev_recursive(player_hand, dealer_upcard, playing_deck, rules);
+
+    // Hit EV using recursive enumeration
+    result.hit_ev = calculate_hit_ev_recursive(player_hand, dealer_upcard, playing_deck, rules, 0);
+
+    // Double EV with composition and no-peek adjustments
+    if (player_hand.size() == 2) {
+        result.double_ev = calculate_double_ev_recursive(player_hand, dealer_upcard, playing_deck, rules);
+
+        // Apply no-peek adjustment using exact Ace count
+        if (!rules.dealer_peek_on_ten && dealer_upcard == 10) {
+            int aces_remaining = playing_deck.cards_remaining.count(1) ? playing_deck.cards_remaining.at(1) : 0;
+            double dealer_bj_prob = static_cast<double>(aces_remaining) / playing_deck.total_cards;
+            result.double_ev = result.double_ev * (1.0 - dealer_bj_prob) - dealer_bj_prob * 2.0;
+        }
+    } else {
+        result.double_ev = -2.0;
+    }
+
+    // Split EV with exact composition
+    if (player_hand.size() == 2 && player_hand[0] == player_hand[1]) {
+        result.split_ev = calculate_split_ev_advanced(player_hand, dealer_upcard, playing_deck, rules, rules.max_split_hands - 1);
+
+        // Special handling for split Aces with one card rule
+        if (player_hand[0] == 1 && rules.split_aces_one_card) {
+            result.split_ev = calculate_split_aces_one_card_ev(dealer_upcard, playing_deck, rules);
+        }
+
+        // Apply no-peek adjustment
+        if (!rules.dealer_peek_on_ten && dealer_upcard == 10) {
+            int aces_remaining = playing_deck.cards_remaining.count(1) ? playing_deck.cards_remaining.at(1) : 0;
+            double dealer_bj_prob = static_cast<double>(aces_remaining) / playing_deck.total_cards;
+            result.split_ev = result.split_ev * (1.0 - dealer_bj_prob) - dealer_bj_prob * 2.0;
+        }
+    } else {
+        result.split_ev = -2.0;
+    }
+
+    // Surrender EV
+    if (rules.surrender_allowed && player_hand.size() == 2) {
+        result.surrender_ev = -0.5;
+    } else {
+        result.surrender_ev = -1.0;
+    }
+
+    // Insurance EV using exact 10-card density
+    if (dealer_upcard == 1) {
+        result.insurance_ev = calculate_insurance_ev(dealer_upcard, playing_deck);
+    } else {
+        result.insurance_ev = -1.0;
+    }
+
+    // True count adjustment (minimal since composition already accounts for most effects)
+    double true_count = counter.get_true_count();
+    result.true_count_adjustment = true_count * 0.002; // Reduced since composition handles most of it
+
+    // Apply small residual true count effects
+    result.stand_ev += result.true_count_adjustment;
+    result.hit_ev += result.true_count_adjustment;
+    result.double_ev += result.true_count_adjustment * 2.0;
+    result.split_ev += result.true_count_adjustment;
+
+    // Calculate variance based on exact composition
+    result.variance = calculate_hand_variance(player_hand, dealer_upcard, Action::STAND, playing_deck, rules);
+
+    // Determine optimal action
+    determine_optimal_action(result);
+
+    // Calculate advantage over basic strategy
+    DetailedEV basic_ev = calculate_true_count_ev(player_hand, dealer_upcard, 0.0, rules);
+    result.advantage_over_basic = result.optimal_ev - basic_ev.optimal_ev;
+
+    return result;
+}
+
 } // namespace bjlogic

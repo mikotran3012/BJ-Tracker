@@ -49,6 +49,17 @@ py::dict deck_state_to_dict(const DeckState& deck) {
 RulesConfig dict_to_rules_config(const py::dict& rules_dict) {
     RulesConfig rules;
 
+    // ✅ FIXED: Set defaults to YOUR game rules first
+    rules.num_decks = 8;                         // Your rule: 8 decks
+    rules.dealer_hits_soft_17 = false;           // Your rule: Stands on soft 17
+    rules.double_after_split = 0;                // Your rule: Not allowed
+    rules.resplitting_allowed = false;           // Your rule: No resplitting
+    rules.max_split_hands = 2;                   // Your rule: Max 2 hands
+    rules.blackjack_payout = 1.5;               // Your rule: 3:2 payout
+    rules.surrender_allowed = true;              // Your rule: Late surrender
+    rules.dealer_peek_on_ten = false;                   // Your rule: NO peek on 10-value cards              // Your rule: Late surrender
+
+    // Allow overrides from Python dict (keep existing override logic)
     if (rules_dict.contains("num_decks")) {
         rules.num_decks = py::cast<int>(rules_dict["num_decks"]);
     }
@@ -69,6 +80,9 @@ RulesConfig dict_to_rules_config(const py::dict& rules_dict) {
     }
     if (rules_dict.contains("surrender_allowed")) {
         rules.surrender_allowed = py::cast<bool>(rules_dict["surrender_allowed"]);
+    }
+    if (rules_dict.contains("dealer_peek_on_ten")) {
+    rules.dealer_peek_on_ten = py::cast<bool>(rules_dict["dealer_peek_on_ten"]);
     }
 
     return rules;
@@ -171,12 +185,132 @@ py::dict py_create_rules_config() {
     result["max_split_hands"] = rules.max_split_hands;
     result["blackjack_payout"] = rules.blackjack_payout;
     result["surrender_allowed"] = rules.surrender_allowed;
+    result["dealer_peek_on_ten"] = rules.dealer_peek_on_ten;
     return result;
 }
 
 // Test function for Phase 2.2
 std::string test_strategy_extension() {
     return "🎯 Complete Basic Strategy Tables successfully implemented!";
+}
+
+// Converter: Your comp_panel format → C++ DeckState
+DeckState python_composition_to_deck_state(const py::dict& composition, int num_decks) {
+    DeckState deck(num_decks);
+
+    // YOUR FORMAT: Based on comp_panel.py structure
+    if (composition.contains("comp") && composition.contains("decks")) {
+        // Direct access to your comp_panel data
+        py::dict comp_dict = py::cast<py::dict>(composition["comp"]);
+        int decks = py::cast<int>(composition["decks"]);
+
+        deck.total_cards = 0;
+
+        // Your ranks: ['A', '2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K']
+        std::vector<std::string> your_ranks = {"A", "2", "3", "4", "5", "6", "7", "8", "9", "T", "J", "Q", "K"};
+
+        for (const auto& rank_str : your_ranks) {
+    if (comp_dict.contains(rank_str.c_str())) {
+        int cards_dealt = py::cast<int>(comp_dict[rank_str.c_str()]);
+                int cards_remaining = decks * 4 - cards_dealt;
+
+                // Convert your ranks to C++ internal format
+                int rank_key;
+                if (rank_str == "A") rank_key = 1;
+                else if (rank_str == "T") rank_key = 10;
+                else if (rank_str == "J") rank_key = 11;
+                else if (rank_str == "Q") rank_key = 12;
+                else if (rank_str == "K") rank_key = 13;
+                else rank_key = std::stoi(rank_str); // 2-9
+
+                deck.cards_remaining[rank_key] = std::max(0, cards_remaining);
+                deck.total_cards += deck.cards_remaining[rank_key];
+            }
+        }
+    }
+
+    return deck;
+}
+
+// Extract composition data from your comp_panel
+py::dict py_extract_composition_from_panel(py::object comp_panel) {
+    py::dict result;
+
+    try {
+        // Get the composition dict and deck count from your panel
+        py::dict comp_dict = comp_panel.attr("comp");
+        int decks = py::cast<int>(comp_panel.attr("decks"));
+
+        result["comp"] = comp_dict;
+        result["decks"] = decks;
+
+        return result;
+
+    } catch (const std::exception& e) {
+        py::dict error;
+        error["error"] = std::string("Failed to extract composition: ") + e.what();
+        return error;
+    }
+}
+
+// Main function: Calculate EV using your comp_panel directly
+py::dict py_calculate_ev_from_comp_panel(const std::vector<int>& hand,
+                                        int dealer_upcard,
+                                        py::object comp_panel,
+                                        const py::dict& rules_dict,
+                                        const std::string& counter_system = "Hi-Lo") {
+    try {
+        // Extract composition from your panel
+        py::dict composition = py_extract_composition_from_panel(comp_panel);
+
+        if (composition.contains("error")) {
+            return composition; // Return error if extraction failed
+        }
+
+        // Create engine and rules
+        bjlogic::AdvancedEVEngine engine(8, 0.001);
+        RulesConfig rules = dict_to_rules_config(rules_dict);
+
+        // Convert composition to DeckState
+        int decks = py::cast<int>(composition["decks"]);
+        DeckState deck = python_composition_to_deck_state(composition, decks);
+
+        // Create counter
+        bjlogic::CountingSystem system = bjlogic::CountingSystem::HI_LO;
+        if (counter_system == "Hi-Opt I") system = bjlogic::CountingSystem::HI_OPT_I;
+        else if (counter_system == "Hi-Opt II") system = bjlogic::CountingSystem::HI_OPT_II;
+        else if (counter_system == "Omega II") system = bjlogic::CountingSystem::OMEGA_II;
+        else if (counter_system == "Zen Count") system = bjlogic::CountingSystem::ZEN_COUNT;
+        else if (counter_system == "Uston APC") system = bjlogic::CountingSystem::USTON_APC;
+
+        bjlogic::CardCounter counter(system, rules.num_decks);
+
+        // Calculate EV with provided composition
+        auto result = engine.calculate_ev_with_provided_composition(hand, dealer_upcard, deck, rules, counter);
+
+        // Return detailed results
+        py::dict py_result;
+        py_result["stand_ev"] = result.stand_ev;
+        py_result["hit_ev"] = result.hit_ev;
+        py_result["double_ev"] = result.double_ev;
+        py_result["split_ev"] = result.split_ev;
+        py_result["surrender_ev"] = result.surrender_ev;
+        py_result["insurance_ev"] = result.insurance_ev;
+        py_result["optimal_action"] = BJLogicCore::action_to_string(result.optimal_action);
+        py_result["optimal_ev"] = result.optimal_ev;
+        py_result["variance"] = result.variance;
+        py_result["advantage_over_basic"] = result.advantage_over_basic;
+        py_result["composition_used"] = true;
+        py_result["success"] = true;
+
+        return py_result;
+
+    } catch (const std::exception& e) {
+        py::dict error_result;
+        error_result["error"] = e.what();
+        error_result["success"] = false;
+        return error_result;
+    }
 }
 
 // =============================================================================
@@ -294,6 +428,11 @@ PYBIND11_MODULE(bjlogic_cpp, m) {
 // =================================================================
 
     // Add these inside your existing PYBIND11_MODULE(bjlogic_cpp, m) { ... }
+
+    m.def("calculate_ev_from_comp_panel", &py_calculate_ev_from_comp_panel,
+      "Calculate EV directly from comp_panel instance",
+      py::arg("hand"), py::arg("dealer_upcard"), py::arg("comp_panel"),
+      py::arg("rules"), py::arg("counter_system") = "Hi-Lo");
 
     // Python-friendly wrapper for recursive EV calculation
     m.def("calculate_recursive_ev_dict", [](bjlogic::AdvancedEVEngine& engine,

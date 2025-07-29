@@ -194,6 +194,11 @@ struct SessionAnalysis {
 
 class AdvancedEVEngine {
 private:
+    // Split Aces one card calculation
+    double calculate_split_aces_one_card_ev(int dealer_upcard,
+                                           const DeckState& deck,
+                                           const RulesConfig& rules) const;
+
     // Caching for performance
     mutable std::unordered_map<uint64_t, DetailedEV> ev_cache;
     mutable std::unordered_map<uint64_t, double> prob_cache;
@@ -217,6 +222,14 @@ private:
     bool use_variance_reduction;
 
 public:
+    // Composition-aware EV calculation
+    DetailedEV calculate_ev_with_provided_composition(
+        const std::vector<int>& player_hand,
+        int dealer_upcard,
+        const DeckState& provided_deck,    // FROM PYTHON API
+        const RulesConfig& rules,
+        const CardCounter& counter) const;
+
     AdvancedEVEngine(int depth = 10, double precision = 0.0001);
 
     // =================================================================

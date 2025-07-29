@@ -264,11 +264,12 @@ DealerProbabilities AdvancedEVEngine::calculate_dealer_probabilities_fresh_deck(
                 break;
             case 10:
                 result.bust_prob = 0.2112;
+                result.blackjack_prob = 0.0769;
                 result.total_17_prob = 0.1292;
                 result.total_18_prob = 0.1292;
                 result.total_19_prob = 0.1292;
                 result.total_20_prob = 0.3551;
-                result.total_21_prob = 0.0462;
+                result.total_21_prob = 0.0000;
                 break;
         }
     } else {
@@ -346,15 +347,33 @@ DetailedEV AdvancedEVEngine::calculate_true_count_ev(const std::vector<int>& pla
 
     DetailedEV result;
 
-    // Use basic strategy as foundation
-    Action basic_action = BJLogicCore::basic_strategy_decision(player_hand, dealer_upcard, rules);
+    // Create deck state for calculations
+    DeckState deck(rules.num_decks);
 
-    // Simple EV estimates
-    result.stand_ev = -0.1;
-    result.hit_ev = -0.15;
-    result.double_ev = -0.2;
-    result.split_ev = -0.1;
-    result.surrender_ev = -0.5;
+    // ✅ REPLACE HARDCODED VALUES WITH REAL CALCULATIONS:
+    result.stand_ev = calculate_stand_ev_recursive(player_hand, dealer_upcard, deck, rules);
+    result.hit_ev = calculate_hit_ev_recursive(player_hand, dealer_upcard, deck, rules, 0);
+
+    if (player_hand.size() == 2) {
+        result.double_ev = calculate_double_ev_recursive(player_hand, dealer_upcard, deck, rules);
+
+        // Check for split
+        if (player_hand[0] == player_hand[1]) {
+            result.split_ev = calculate_split_ev_advanced(player_hand, dealer_upcard, deck, rules, rules.max_split_hands - 1);
+        } else {
+            result.split_ev = -2.0;
+        }
+    } else {
+        result.double_ev = -2.0;
+        result.split_ev = -2.0;
+    }
+
+    // Surrender
+    if (rules.surrender_allowed && player_hand.size() == 2) {
+        result.surrender_ev = -0.5;
+    } else {
+        result.surrender_ev = -1.0;
+    }
 
     // Apply true count adjustment
     double adjustment = true_count * 0.005;

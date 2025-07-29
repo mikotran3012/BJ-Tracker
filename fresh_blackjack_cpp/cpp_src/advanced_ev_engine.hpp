@@ -1,4 +1,4 @@
-// cpp_src/advanced_ev_engine.hpp - FIXED VERSION
+// cpp_src/advanced_ev_engine.hpp - FIXED VERSION (REMOVE DUPLICATES)
 /*
  * Advanced Expected Value Calculation Engine - COMPLETE PROFESSIONAL VERSION
  * Sophisticated algorithms for precise EV calculations per hand + Dealer Probability Engine
@@ -198,10 +198,10 @@ private:
     mutable std::unordered_map<uint64_t, DetailedEV> ev_cache;
     mutable std::unordered_map<uint64_t, double> prob_cache;
 
-    // Dealer probability cache (NEW)
+    // Dealer probability cache
     mutable std::unordered_map<uint64_t, DealerProbabilities> dealer_prob_cache;
 
-    // Performance tracking (NEW)
+    // Performance tracking
     mutable int cache_hits;
     mutable int cache_misses;
     mutable int recursive_calls;
@@ -242,7 +242,7 @@ public:
                                      const RulesConfig& rules) const;
 
     // =================================================================
-    // DEALER PROBABILITY ENGINE (NEW)
+    // DEALER PROBABILITY ENGINE
     // =================================================================
 
     // Main probability calculation with caching
@@ -270,22 +270,53 @@ public:
         const RulesConfig& rules) const;
 
     // =================================================================
-    // SOPHISTICATED ALGORITHMS
+    // RECURSIVE EV CALCULATION METHODS
     // =================================================================
+
+    // Recursive stand EV calculation
+    double calculate_stand_ev_recursive(const std::vector<int>& player_hand,
+                                       int dealer_upcard,
+                                       const DeckState& deck,
+                                       const RulesConfig& rules) const;
 
     // Recursive hit EV calculation with depth control
     double calculate_hit_ev_recursive(const std::vector<int>& hand,
-                                    int dealer_upcard,
-                                    const DeckState& deck,
-                                    const RulesConfig& rules,
-                                    int depth = 0) const;
-
-    // Split EV with recursive analysis for multiple splits
-    double calculate_split_ev_advanced(const std::vector<int>& pair_hand,
                                      int dealer_upcard,
                                      const DeckState& deck,
                                      const RulesConfig& rules,
-                                     int splits_remaining = 3) const;
+                                     int depth = 0) const;
+
+    // Recursive double EV calculation
+    double calculate_double_ev_recursive(const std::vector<int>& player_hand,
+                                        int dealer_upcard,
+                                        const DeckState& deck,
+                                        const RulesConfig& rules) const;
+
+    // Split EV with recursive analysis for multiple splits
+    double calculate_split_ev_advanced(const std::vector<int>& pair_hand,
+                                      int dealer_upcard,
+                                      const DeckState& deck,
+                                      const RulesConfig& rules,
+                                      int splits_remaining = 3) const;
+
+    // Helper for split hand enumeration
+    double calculate_split_hand_ev(int pair_rank,
+                                  int dealer_upcard,
+                                  const DeckState& deck,
+                                  const RulesConfig& rules,
+                                  int splits_remaining) const;
+
+    // Optimal play calculation using recursive methods
+    double calculate_optimal_play_ev(const std::vector<int>& hand,
+                                    int dealer_upcard,
+                                    const DeckState& deck,
+                                    const RulesConfig& rules) const;
+
+    // Enhanced detailed EV calculation using recursive methods
+    DetailedEV calculate_detailed_ev_with_recursion(const std::vector<int>& player_hand,
+                                                   int dealer_upcard,
+                                                   const CardCounter& counter,
+                                                   const RulesConfig& rules) const;
 
     // =================================================================
     // PROBABILITY CALCULATIONS
@@ -390,13 +421,8 @@ private:
                                       const DeckState& deck,
                                       const RulesConfig& rules) const;
 
-    double calculate_optimal_play_ev(const std::vector<int>& hand,
-                                   int dealer_upcard,
-                                   const DeckState& deck,
-                                   const RulesConfig& rules) const;
-
     // =================================================================
-    // DEALER PROBABILITY HELPER METHODS (NEW)
+    // DEALER PROBABILITY HELPER METHODS
     // =================================================================
 
     // Cache key generation for probability results
@@ -409,8 +435,6 @@ private:
     bool dealer_must_hit(const std::vector<int>& dealer_hand, const RulesConfig& rules) const;
     int calculate_dealer_total(const std::vector<int>& dealer_hand) const;
     bool is_dealer_soft(const std::vector<int>& dealer_hand) const;
-
-    // MISSING METHOD - ADD THIS
     bool is_fresh_deck(const DeckComposition& deck) const;
 
     // =================================================================

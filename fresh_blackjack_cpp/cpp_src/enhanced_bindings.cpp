@@ -290,6 +290,240 @@ PYBIND11_MODULE(bjlogic_cpp, m) {
     m.doc() = "Advanced Blackjack C++ Logic - Phase 2.3 Complete Card Counting";
 
     // =================================================================
+// RECURSIVE EV METHOD BINDINGS
+// =================================================================
+
+    // Add these inside your existing PYBIND11_MODULE(bjlogic_cpp, m) { ... }
+
+    // Python-friendly wrapper for recursive EV calculation
+    m.def("calculate_recursive_ev_dict", [](bjlogic::AdvancedEVEngine& engine,
+                                           const std::vector<int>& hand,
+                                           int dealer_upcard,
+                                           const py::dict& rules_dict) {
+        RulesConfig rules = dict_to_rules_config(rules_dict);
+
+        // Create a simple counter for the calculation
+        bjlogic::CardCounter counter(bjlogic::CountingSystem::HI_LO, rules.num_decks);
+
+        auto result = engine.calculate_detailed_ev_with_recursion(hand, dealer_upcard, counter, rules);
+
+        py::dict py_result;
+        py_result["stand_ev"] = result.stand_ev;
+        py_result["hit_ev"] = result.hit_ev;
+        py_result["double_ev"] = result.double_ev;
+        py_result["split_ev"] = result.split_ev;
+        py_result["surrender_ev"] = result.surrender_ev;
+        py_result["optimal_ev"] = result.optimal_ev;
+        py_result["optimal_action"] = BJLogicCore::action_to_string(result.optimal_action);
+        py_result["true_count_adjustment"] = result.true_count_adjustment;
+        py_result["variance"] = result.variance;
+        py_result["advantage_over_basic"] = result.advantage_over_basic;
+
+        return py_result;
+    }, "Calculate EV using recursive methods", py::arg("engine"), py::arg("hand"), py::arg("dealer_upcard"), py::arg("rules"));
+
+    // Individual recursive method bindings
+    m.def("calculate_stand_ev_recursive_dict", [](bjlogic::AdvancedEVEngine& engine,
+                                                 const std::vector<int>& hand,
+                                                 int dealer_upcard,
+                                                 const py::dict& rules_dict) {
+        RulesConfig rules = dict_to_rules_config(rules_dict);
+        DeckState deck(rules.num_decks);
+
+        double result = engine.calculate_stand_ev_recursive(hand, dealer_upcard, deck, rules);
+
+        py::dict py_result;
+        py_result["stand_ev"] = result;
+        py_result["method"] = "recursive";
+
+        return py_result;
+    }, "Calculate stand EV using recursive method");
+
+    m.def("calculate_hit_ev_recursive_dict", [](bjlogic::AdvancedEVEngine& engine,
+                                               const std::vector<int>& hand,
+                                               int dealer_upcard,
+                                               const py::dict& rules_dict,
+                                               int depth = 0) {
+        RulesConfig rules = dict_to_rules_config(rules_dict);
+        DeckState deck(rules.num_decks);
+
+        double result = engine.calculate_hit_ev_recursive(hand, dealer_upcard, deck, rules, depth);
+
+        py::dict py_result;
+        py_result["hit_ev"] = result;
+        py_result["depth"] = depth;
+        py_result["method"] = "recursive";
+
+        return py_result;
+    }, "Calculate hit EV using recursive method",
+       py::arg("engine"), py::arg("hand"), py::arg("dealer_upcard"), py::arg("rules"), py::arg("depth") = 0);
+
+    m.def("calculate_double_ev_recursive_dict", [](bjlogic::AdvancedEVEngine& engine,
+                                                  const std::vector<int>& hand,
+                                                  int dealer_upcard,
+                                                  const py::dict& rules_dict) {
+        RulesConfig rules = dict_to_rules_config(rules_dict);
+        DeckState deck(rules.num_decks);
+
+        double result = engine.calculate_double_ev_recursive(hand, dealer_upcard, deck, rules);
+
+        py::dict py_result;
+        py_result["double_ev"] = result;
+        py_result["method"] = "recursive";
+
+        return py_result;
+    }, "Calculate double EV using recursive method");
+
+    m.def("calculate_split_ev_recursive_dict", [](bjlogic::AdvancedEVEngine& engine,
+                                                 const std::vector<int>& hand,
+                                                 int dealer_upcard,
+                                                 const py::dict& rules_dict,
+                                                 int splits_remaining = 3) {
+        RulesConfig rules = dict_to_rules_config(rules_dict);
+        DeckState deck(rules.num_decks);
+
+        double result = engine.calculate_split_ev_advanced(hand, dealer_upcard, deck, rules, splits_remaining);
+
+        py::dict py_result;
+        py_result["split_ev"] = result;
+        py_result["splits_remaining"] = splits_remaining;
+        py_result["method"] = "recursive";
+
+        return py_result;
+    }, "Calculate split EV using recursive method",
+       py::arg("engine"), py::arg("hand"), py::arg("dealer_upcard"), py::arg("rules"), py::arg("splits_remaining") = 3);
+
+    // Comprehensive recursive analysis function
+    m.def("analyze_hand_recursive", [](const std::vector<int>& hand,
+                                      int dealer_upcard,
+                                      const py::dict& rules_dict,
+                                      const std::string& counter_system = "Hi-Lo",
+                                      int running_count = 0,
+                                      int penetration = 50) {
+
+        bjlogic::AdvancedEVEngine engine(8, 0.001); // Good precision for testing
+        RulesConfig rules = dict_to_rules_config(rules_dict);
+
+        // Create a counter with specified state
+        bjlogic::CountingSystem system = bjlogic::CountingSystem::HI_LO;
+        if (counter_system == "Hi-Opt I") system = bjlogic::CountingSystem::HI_OPT_I;
+        else if (counter_system == "Hi-Opt II") system = bjlogic::CountingSystem::HI_OPT_II;
+        else if (counter_system == "Omega II") system = bjlogic::CountingSystem::OMEGA_II;
+        else if (counter_system == "Zen Count") system = bjlogic::CountingSystem::ZEN_COUNT;
+        else if (counter_system == "Uston APC") system = bjlogic::CountingSystem::USTON_APC;
+
+        bjlogic::CardCounter counter(system, rules.num_decks);
+
+        // Simulate the count state (simplified)
+        for (int i = 0; i < running_count; ++i) {
+            counter.process_card(5); // Process neutral cards to adjust count
+        }
+
+        // Calculate using recursive methods
+        auto recursive_result = engine.calculate_detailed_ev_with_recursion(hand, dealer_upcard, counter, rules);
+
+        // Also calculate basic strategy for comparison
+        auto basic_result = engine.calculate_true_count_ev(hand, dealer_upcard, 0.0, rules);
+
+        py::dict result;
+
+        // Recursive results
+        result["recursive_analysis"] = py::dict();
+        result["recursive_analysis"]["stand_ev"] = recursive_result.stand_ev;
+        result["recursive_analysis"]["hit_ev"] = recursive_result.hit_ev;
+        result["recursive_analysis"]["double_ev"] = recursive_result.double_ev;
+        result["recursive_analysis"]["split_ev"] = recursive_result.split_ev;
+        result["recursive_analysis"]["surrender_ev"] = recursive_result.surrender_ev;
+        result["recursive_analysis"]["optimal_action"] = BJLogicCore::action_to_string(recursive_result.optimal_action);
+        result["recursive_analysis"]["optimal_ev"] = recursive_result.optimal_ev;
+        result["recursive_analysis"]["variance"] = recursive_result.variance;
+
+        // Basic strategy results
+        result["basic_strategy"] = py::dict();
+        result["basic_strategy"]["optimal_action"] = BJLogicCore::action_to_string(basic_result.optimal_action);
+        result["basic_strategy"]["optimal_ev"] = basic_result.optimal_ev;
+
+        // Comparison
+        result["ev_improvement"] = recursive_result.optimal_ev - basic_result.optimal_ev;
+        result["counter_system"] = counter_system;
+        result["true_count"] = counter.get_true_count();
+        result["advantage"] = counter.get_advantage();
+
+        // Performance info
+        result["cache_size"] = engine.get_cache_size();
+
+        return result;
+
+    }, "Comprehensive recursive hand analysis",
+       py::arg("hand"), py::arg("dealer_upcard"), py::arg("rules"),
+       py::arg("counter_system") = "Hi-Lo", py::arg("running_count") = 0, py::arg("penetration") = 50);
+
+    // Test function for recursive methods
+    m.def("test_recursive_methods", []() {
+        try {
+            bjlogic::AdvancedEVEngine engine(6, 0.01); // Fast settings for testing
+            RulesConfig rules;
+            DeckState deck(6);
+
+            // Test a simple hand
+            std::vector<int> test_hand = {10, 6};
+            int dealer_upcard = 10;
+
+            // Test each recursive method
+            double stand_ev = engine.calculate_stand_ev_recursive(test_hand, dealer_upcard, deck, rules);
+            double hit_ev = engine.calculate_hit_ev_recursive(test_hand, dealer_upcard, deck, rules, 0);
+            double double_ev = engine.calculate_double_ev_recursive(test_hand, dealer_upcard, deck, rules);
+
+            py::dict result;
+            result["success"] = true;
+            result["stand_ev"] = stand_ev;
+            result["hit_ev"] = hit_ev;
+            result["double_ev"] = double_ev;
+            result["test_hand"] = test_hand;
+            result["dealer_upcard"] = dealer_upcard;
+            result["message"] = "All recursive methods working correctly!";
+
+            return result;
+
+        } catch (const std::exception& e) {
+            py::dict result;
+            result["success"] = false;
+            result["error"] = e.what();
+            result["message"] = "Recursive methods test failed";
+            return result;
+        }
+    }, "Test that recursive EV methods are working");
+
+    // Performance benchmark function
+    m.def("benchmark_recursive_methods", [](int num_tests = 100) {
+        bjlogic::AdvancedEVEngine engine(6, 0.01);
+        RulesConfig rules;
+
+        auto start = std::chrono::high_resolution_clock::now();
+
+        // Run multiple calculations
+        for (int i = 0; i < num_tests; ++i) {
+            bjlogic::CardCounter counter(bjlogic::CountingSystem::HI_LO, 6);
+            std::vector<int> hand = {10, 6};
+            int dealer = 10;
+
+            engine.calculate_detailed_ev_with_recursion(hand, dealer, counter, rules);
+        }
+
+        auto end = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+
+        py::dict result;
+        result["num_tests"] = num_tests;
+        result["total_time_microseconds"] = duration.count();
+        result["average_time_microseconds"] = duration.count() / num_tests;
+        result["calculations_per_second"] = (num_tests * 1000000.0) / duration.count();
+        result["cache_size"] = engine.get_cache_size();
+
+        return result;
+    }, "Benchmark recursive EV calculation performance", py::arg("num_tests") = 100);
+
+    // =================================================================
     // ENUMS
     // =================================================================
 

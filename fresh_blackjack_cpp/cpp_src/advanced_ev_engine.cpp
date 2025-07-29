@@ -339,73 +339,6 @@ DealerProbabilities AdvancedEVEngine::calculate_dealer_probabilities_with_remove
 // CORE EV CALCULATION METHODS
 // =============================================================================
 
-DetailedEV AdvancedEVEngine::calculate_detailed_ev(const std::vector<int>& player_hand,
-                                                  int dealer_upcard,
-                                                  const CardCounter& counter,
-                                                  const RulesConfig& rules) const {
-
-    // Create a basic deck state (simplified)
-    DeckState current_deck(rules.num_decks);
-
-    // Check cache first
-    uint64_t cache_key = hash_scenario(player_hand, dealer_upcard, current_deck);
-    auto cached = ev_cache.find(cache_key);
-    if (cached != ev_cache.end()) {
-        return cached->second;
-    }
-
-    DetailedEV result;
-
-    // Use existing basic strategy as foundation
-    Action basic_action = BJLogicCore::basic_strategy_decision(player_hand, dealer_upcard, rules);
-
-    // Calculate basic EVs (simplified for now)
-    result.stand_ev = calculate_stand_ev_advanced(player_hand, dealer_upcard, current_deck, rules);
-    result.hit_ev = calculate_simple_hit_ev(player_hand, dealer_upcard, current_deck, rules);
-
-    if (player_hand.size() == 2) {
-        result.double_ev = calculate_double_ev_advanced(player_hand, dealer_upcard, current_deck, rules);
-    }
-
-    // Apply true count adjustments
-    double true_count = counter.get_true_count();
-    result.true_count_adjustment = apply_true_count_adjustment(result, true_count, player_hand, dealer_upcard);
-
-    // Set optimal action
-    determine_optimal_action(result);
-
-    // Calculate variance (simplified)
-    result.variance = 1.3; // Typical blackjack variance
-
-    // Cache the result
-    ev_cache[cache_key] = result;
-
-    return result;
-}
-
-DetailedEV AdvancedEVEngine::calculate_composition_dependent_ev(const std::vector<int>& player_hand,
-                                                              int dealer_upcard,
-                                                              const DeckState& deck,
-                                                              const RulesConfig& rules) const {
-
-    DetailedEV result;
-
-    // Calculate EVs based on exact deck composition
-    result.stand_ev = calculate_stand_ev_advanced(player_hand, dealer_upcard, deck, rules);
-    result.hit_ev = calculate_simple_hit_ev(player_hand, dealer_upcard, deck, rules);
-
-    if (player_hand.size() == 2) {
-        result.double_ev = calculate_double_ev_advanced(player_hand, dealer_upcard, deck, rules);
-    }
-
-    // Apply composition adjustments
-    result.composition_dependent_ev = calculate_composition_adjustment(player_hand, dealer_upcard, deck);
-
-    determine_optimal_action(result);
-
-    return result;
-}
-
 DetailedEV AdvancedEVEngine::calculate_true_count_ev(const std::vector<int>& player_hand,
                                                    int dealer_upcard,
                                                    double true_count,
@@ -571,7 +504,6 @@ bool AdvancedEVEngine::is_dealer_soft(const std::vector<int>& dealer_hand) const
     return (aces > 0 && total + 10 <= 21);
 }
 
-// Add missing helper method
 bool AdvancedEVEngine::is_fresh_deck(const DeckComposition& deck) const {
     // Check if deck is in fresh state (all cards at expected counts)
     int expected_per_rank = deck.total_cards / 52 * 4;
@@ -714,8 +646,454 @@ uint64_t AdvancedEVEngine::hash_scenario(const std::vector<int>& hand, int deale
 }
 
 // =============================================================================
+// RECURSIVE EV CALCULATION METHODS - ADD TO END OF FILE
+// =============================================================================
+
+double AdvancedEVEngine::calculate_stand_ev_recursive(const std::vector<int>& player_hand,
+                                                     int dealer_upcard,
+                                                     const DeckState& deck,
+                                                     const RulesConfig& rules) const {
+
+    HandData player_data = BJLogicCore::calculate_hand_value(player_hand);
+
+    if (player_data.is_busted) return -1.0;
+    if (player_data.total < 1) return -1.0;
+
+    // Convert DeckState to DeckComposition for your existing dealer probability engine
+    DeckComposition deck_comp(deck.num_decks);
+    for (const auto& pair : deck.cards_remaining) {
+        int rank = pair.first;
+        int count = pair.second;
+
+        if (rank >= 1 && rank <= 9) {
+            deck_comp.cards_remaining[rank-1] = count;
+        } else if (rank == 10) {
+            // Distribute 10-value cards evenly
+            int per_rank = count / 4;
+            deck_comp.cards_remaining[9] = per_rank;   // 10
+            deck_comp.cards_remaining[10] = per_rank;  // J
+            deck_comp.cards_remaining[11] = per_rank;  // Q
+            deck_comp.cards_remaining[12] = per_rank;  // K
+        }
+    }
+    deck_comp.total_cards = deck.total_cards;
+
+    // Use your existing advanced dealer probability engine
+    DealerProbabilities dealer_probs = calculate_dealer_probabilities_advanced(dealer_upcard, deck_comp, rules);
+
+    double ev = 0.0;
+
+    // Player wins against dealer bust
+    ev += dealer_probs.bust_prob * 1.0;
+
+    // Compare against dealer totals 17-21
+    if (player_data.total > 17) ev += dealer_probs.total_17_prob * 1.0;
+    else if (player_data.total < 17) ev += dealer_probs.total_17_prob * (-1.0);
+
+    if (player_data.total > 18) ev += dealer_probs.total_18_prob * 1.0;
+    else if (player_data.total < 18) ev += dealer_probs.total_18_prob * (-1.0);
+
+    if (player_data.total > 19) ev += dealer_probs.total_19_prob * 1.0;
+    else if (player_data.total < 19) ev += dealer_probs.total_19_prob * (-1.0);
+
+    if (player_data.total > 20) ev += dealer_probs.total_20_prob * 1.0;
+    else if (player_data.total < 20) ev += dealer_probs.total_20_prob * (-1.0);
+
+    if (player_data.total > 21) ev += dealer_probs.total_21_prob * 1.0;
+    else if (player_data.total < 21) ev += dealer_probs.total_21_prob * (-1.0);
+
+    // Blackjack bonus
+    if (player_data.is_blackjack && player_hand.size() == 2) {
+        double dealer_bj_prob = dealer_probs.blackjack_prob;
+        double player_bj_win_prob = dealer_probs.total_21_prob - dealer_bj_prob;
+        ev += player_bj_win_prob * (rules.blackjack_payout - 1.0);
+    }
+
+    return ev;
+}
+
+double AdvancedEVEngine::calculate_hit_ev_recursive(const std::vector<int>& hand,
+                                                   int dealer_upcard,
+                                                   const DeckState& deck,
+                                                   const RulesConfig& rules,
+                                                   int depth) const {
+
+    if (depth > simulation_depth) {
+        // Fallback to your existing simple hit EV at max depth
+        return calculate_simple_hit_ev(hand, dealer_upcard, deck, rules);
+    }
+
+    HandData hand_data = BJLogicCore::calculate_hand_value(hand);
+
+    if (hand_data.is_busted) return -1.0;
+    if (hand_data.total >= 21) {
+        return calculate_stand_ev_recursive(hand, dealer_upcard, deck, rules);
+    }
+
+    double total_ev = 0.0;
+    double total_probability = 0.0;
+
+    // Iterate through all possible next cards
+    for (int next_card_rank = 1; next_card_rank <= 10; ++next_card_rank) {
+        auto it = deck.cards_remaining.find(next_card_rank);
+        if (it == deck.cards_remaining.end() || it->second <= 0) continue;
+
+        int cards_available = it->second;
+        double card_prob = static_cast<double>(cards_available) / deck.total_cards;
+        total_probability += card_prob;
+
+        int card_value = (next_card_rank == 10) ? 10 : next_card_rank;
+
+        // Create new hand
+        std::vector<int> new_hand = hand;
+        new_hand.push_back(card_value);
+
+        // Update deck state
+        DeckState new_deck = deck;
+        new_deck.cards_remaining[next_card_rank]--;
+        new_deck.total_cards--;
+
+        // Calculate EV for this branch
+        double branch_ev;
+        HandData new_hand_data = BJLogicCore::calculate_hand_value(new_hand);
+
+        if (new_hand_data.is_busted) {
+            branch_ev = -1.0;
+        } else if (new_hand_data.total >= 21) {
+            branch_ev = calculate_stand_ev_recursive(new_hand, dealer_upcard, new_deck, rules);
+        } else {
+            // Player can hit again or stand - choose optimal
+            double hit_again_ev = calculate_hit_ev_recursive(new_hand, dealer_upcard, new_deck, rules, depth + 1);
+            double stand_ev = calculate_stand_ev_recursive(new_hand, dealer_upcard, new_deck, rules);
+            branch_ev = std::max(hit_again_ev, stand_ev);
+        }
+
+        total_ev += card_prob * branch_ev;
+    }
+
+    // Normalize if needed
+    if (total_probability > 0.0 && std::abs(total_probability - 1.0) > 0.001) {
+        total_ev /= total_probability;
+    }
+
+    return total_ev;
+}
+
+double AdvancedEVEngine::calculate_double_ev_recursive(const std::vector<int>& player_hand,
+                                                      int dealer_upcard,
+                                                      const DeckState& deck,
+                                                      const RulesConfig& rules) const {
+
+    if (player_hand.size() != 2) return -2.0; // Can only double on initial hand
+
+    double total_ev = 0.0;
+    double total_probability = 0.0;
+
+    // Iterate through all possible cards to double with
+    for (int next_card_rank = 1; next_card_rank <= 10; ++next_card_rank) {
+        auto it = deck.cards_remaining.find(next_card_rank);
+        if (it == deck.cards_remaining.end() || it->second <= 0) continue;
+
+        int cards_available = it->second;
+        double card_prob = static_cast<double>(cards_available) / deck.total_cards;
+        total_probability += card_prob;
+
+        int card_value = (next_card_rank == 10) ? 10 : next_card_rank;
+
+        // Create final hand after doubling
+        std::vector<int> final_hand = player_hand;
+        final_hand.push_back(card_value);
+
+        // Update deck state
+        DeckState new_deck = deck;
+        new_deck.cards_remaining[next_card_rank]--;
+        new_deck.total_cards--;
+
+        // Calculate stand EV for this final hand (must stand after doubling)
+        double hand_ev = calculate_stand_ev_recursive(final_hand, dealer_upcard, new_deck, rules);
+
+        // Double the result (double bet)
+        total_ev += card_prob * (hand_ev * 2.0);
+    }
+
+    if (total_probability > 0.0 && std::abs(total_probability - 1.0) > 0.001) {
+        total_ev /= total_probability;
+    }
+
+    return total_ev;
+}
+
+double AdvancedEVEngine::calculate_split_ev_advanced(const std::vector<int>& pair_hand,
+                                                    int dealer_upcard,
+                                                    const DeckState& deck,
+                                                    const RulesConfig& rules,
+                                                    int splits_remaining) const {
+
+    if (pair_hand.size() != 2 || pair_hand[0] != pair_hand[1]) {
+        return -2.0; // Not a valid pair
+    }
+
+    if (splits_remaining <= 0) {
+        // No more splits allowed, play as regular hand
+        return calculate_optimal_play_ev(pair_hand, dealer_upcard, deck, rules);
+    }
+
+    int pair_rank = pair_hand[0];
+    double total_ev = 0.0;
+
+    // Calculate EV for each split hand (average of two hands)
+    for (int split_hand = 0; split_hand < 2; ++split_hand) {
+        double hand_ev = calculate_split_hand_ev(pair_rank, dealer_upcard, deck, rules, splits_remaining);
+        total_ev += hand_ev;
+    }
+
+    return total_ev / 2.0; // Average the two hands
+}
+
+double AdvancedEVEngine::calculate_split_hand_ev(int pair_rank,
+                                                int dealer_upcard,
+                                                const DeckState& deck,
+                                                const RulesConfig& rules,
+                                                int splits_remaining) const {
+
+    double total_ev = 0.0;
+    double total_probability = 0.0;
+
+    // Enumerate all possible second cards for this split hand
+    for (int second_card_rank = 1; second_card_rank <= 10; ++second_card_rank) {
+        auto it = deck.cards_remaining.find(second_card_rank);
+        if (it == deck.cards_remaining.end() || it->second <= 0) continue;
+
+        int cards_available = it->second;
+        double card_prob = static_cast<double>(cards_available) / deck.total_cards;
+        total_probability += card_prob;
+
+        int second_card_value = (second_card_rank == 10) ? 10 : second_card_rank;
+
+        // Create the split hand
+        std::vector<int> split_hand = {pair_rank, second_card_value};
+
+        // Update deck state
+        DeckState new_deck = deck;
+        new_deck.cards_remaining[second_card_rank]--;
+        new_deck.total_cards--;
+
+        double hand_ev;
+
+        // Check if we got another pair and can re-split
+        if (second_card_value == pair_rank && splits_remaining > 0 && rules.resplitting_allowed) {
+            // Option to re-split
+            double resplit_ev = calculate_split_ev_advanced(split_hand, dealer_upcard, new_deck, rules, splits_remaining - 1);
+            double play_ev = calculate_optimal_play_ev(split_hand, dealer_upcard, new_deck, rules);
+            hand_ev = std::max(resplit_ev, play_ev);
+        } else {
+            // Play the hand optimally
+            hand_ev = calculate_optimal_play_ev(split_hand, dealer_upcard, new_deck, rules);
+        }
+
+        total_ev += card_prob * hand_ev;
+    }
+
+    if (total_probability > 0.0 && std::abs(total_probability - 1.0) > 0.001) {
+        total_ev /= total_probability;
+    }
+
+    return total_ev;
+}
+
+double AdvancedEVEngine::calculate_optimal_play_ev(const std::vector<int>& hand,
+                                                  int dealer_upcard,
+                                                  const DeckState& deck,
+                                                  const RulesConfig& rules) const {
+
+    // Calculate EV for all available actions
+    double stand_ev = calculate_stand_ev_recursive(hand, dealer_upcard, deck, rules);
+    double hit_ev = calculate_hit_ev_recursive(hand, dealer_upcard, deck, rules, 0);
+
+    double best_ev = std::max(stand_ev, hit_ev);
+
+    // Check doubling (if available)
+    if (hand.size() == 2 || (rules.double_after_split > 0 && hand.size() == 2)) {
+        HandData hand_data = BJLogicCore::calculate_hand_value(hand);
+
+        bool can_double = (hand.size() == 2);
+        if (rules.double_after_split == 2) {
+            // Only double on 10 and 11
+            can_double = can_double && (hand_data.total == 10 || hand_data.total == 11);
+        }
+
+        if (can_double) {
+            double double_ev = calculate_double_ev_recursive(hand, dealer_upcard, deck, rules);
+            best_ev = std::max(best_ev, double_ev);
+        }
+    }
+
+    // Check surrender (if available and initial hand)
+    if (rules.surrender_allowed && hand.size() == 2) {
+        best_ev = std::max(best_ev, -0.5);
+    }
+
+    return best_ev;
+}
+
+DetailedEV AdvancedEVEngine::calculate_detailed_ev_with_recursion(const std::vector<int>& player_hand,
+                                                                 int dealer_upcard,
+                                                                 const CardCounter& counter,
+                                                                 const RulesConfig& rules) const {
+
+    // Simple deck state based on penetration
+    DeckState current_deck(rules.num_decks);
+
+    int penetration = counter.get_penetration();
+    double cards_played_ratio = penetration / 100.0;
+
+    for (auto& pair : current_deck.cards_remaining) {
+        int rank = pair.first;
+        int original_count = (rank == 10) ? 64 : 24; // 6 decks default
+        int estimated_played = static_cast<int>(original_count * cards_played_ratio);
+        pair.second = original_count - estimated_played;
+        pair.second = std::max(0, pair.second);
+    }
+
+    // Recalculate total
+    current_deck.total_cards = 0;
+    for (const auto& pair : current_deck.cards_remaining) {
+        current_deck.total_cards += pair.second;
+    }
+
+    DetailedEV result;
+
+    // Calculate all action EVs using NEW recursive methods
+    result.stand_ev = calculate_stand_ev_recursive(player_hand, dealer_upcard, current_deck, rules);
+    result.hit_ev = calculate_hit_ev_recursive(player_hand, dealer_upcard, current_deck, rules, 0);
+
+    if (player_hand.size() == 2) {
+        result.double_ev = calculate_double_ev_recursive(player_hand, dealer_upcard, current_deck, rules);
+
+        // Check for pair splitting
+        if (player_hand[0] == player_hand[1] && rules.resplitting_allowed) {
+            result.split_ev = calculate_split_ev_advanced(player_hand, dealer_upcard, current_deck, rules, rules.max_split_hands - 1);
+        } else {
+            result.split_ev = -2.0; // Not available
+        }
+
+        // Surrender calculation
+        if (rules.surrender_allowed) {
+            result.surrender_ev = -0.5;
+            result.late_surrender_ev = -0.5;
+        }
+    }
+
+    // Apply true count adjustments
+    double true_count = counter.get_true_count();
+    double adjustment = true_count * 0.005; // Simple linear adjustment
+    result.true_count_adjustment = adjustment;
+
+    result.stand_ev += adjustment;
+    result.hit_ev += adjustment;
+    result.double_ev += adjustment * 2.0;
+    result.split_ev += adjustment;
+
+    // Calculate variance (simplified)
+    result.variance = 1.3; // Typical blackjack variance
+
+    // Determine optimal action
+    double max_ev = result.stand_ev;
+    result.optimal_action = Action::STAND;
+
+    if (result.hit_ev > max_ev) {
+        max_ev = result.hit_ev;
+        result.optimal_action = Action::HIT;
+    }
+
+    if (result.double_ev > max_ev) {
+        max_ev = result.double_ev;
+        result.optimal_action = Action::DOUBLE;
+    }
+
+    if (result.split_ev > max_ev) {
+        max_ev = result.split_ev;
+        result.optimal_action = Action::SPLIT;
+    }
+
+    if (result.surrender_ev > max_ev) {
+        max_ev = result.surrender_ev;
+        result.optimal_action = Action::SURRENDER;
+    }
+
+    result.optimal_ev = max_ev;
+
+    // Calculate advantage over basic strategy (simplified)
+    result.advantage_over_basic = adjustment;
+
+    return result;
+}
+
+// =============================================================================
 // PLACEHOLDER IMPLEMENTATIONS FOR COMPLEX METHODS
 // =============================================================================
+
+DetailedEV AdvancedEVEngine::calculate_detailed_ev(const std::vector<int>& player_hand,
+                                                  int dealer_upcard,
+                                                  const CardCounter& counter,
+                                                  const RulesConfig& rules) const {
+    // Use the recursive version for now
+    return calculate_detailed_ev_with_recursion(player_hand, dealer_upcard, counter, rules);
+}
+
+DetailedEV AdvancedEVEngine::calculate_composition_dependent_ev(const std::vector<int>& player_hand,
+                                                              int dealer_upcard,
+                                                              const DeckState& deck,
+                                                              const RulesConfig& rules) const {
+    DetailedEV result;
+
+    // Calculate EVs based on exact deck composition using recursive methods
+    result.stand_ev = calculate_stand_ev_recursive(player_hand, dealer_upcard, deck, rules);
+    result.hit_ev = calculate_hit_ev_recursive(player_hand, dealer_upcard, deck, rules, 0);
+
+    if (player_hand.size() == 2) {
+        result.double_ev = calculate_double_ev_recursive(player_hand, dealer_upcard, deck, rules);
+    }
+
+    // Apply composition adjustments
+    result.composition_dependent_ev = calculate_composition_adjustment(player_hand, dealer_upcard, deck);
+
+    determine_optimal_action(result);
+
+    return result;
+}
+
+ScenarioAnalysis AdvancedEVEngine::analyze_scenario(const std::vector<int>& player_hand,
+                                                  int dealer_upcard,
+                                                  const CardCounter& counter,
+                                                  const RulesConfig& rules) const {
+    ScenarioAnalysis analysis;
+    analysis.player_hand = player_hand;
+    analysis.dealer_upcard = dealer_upcard;
+    analysis.rules = rules;
+
+    // Basic strategy EV
+    analysis.basic_strategy_ev = calculate_true_count_ev(player_hand, dealer_upcard, 0.0, rules);
+
+    // Counting strategy EV
+    analysis.counting_strategy_ev = calculate_detailed_ev_with_recursion(player_hand, dealer_upcard, counter, rules);
+
+    // Calculate improvement
+    analysis.ev_improvement = analysis.counting_strategy_ev.optimal_ev - analysis.basic_strategy_ev.optimal_ev;
+
+    // Generate recommendation
+    if (analysis.ev_improvement > 0.02) {
+        analysis.recommendation = "Strong counting advantage - follow counting strategy";
+    } else if (analysis.ev_improvement > 0.005) {
+        analysis.recommendation = "Moderate counting advantage";
+    } else {
+        analysis.recommendation = "Basic strategy sufficient";
+    }
+
+    analysis.confidence_level = 0.90;
+
+    return analysis;
+}
 
 SessionAnalysis AdvancedEVEngine::analyze_session(double bankroll,
                                                  double base_bet,
@@ -726,6 +1104,8 @@ SessionAnalysis AdvancedEVEngine::analyze_session(double bankroll,
     analysis.hourly_ev = base_bet * counter.get_advantage() * 80; // 80 hands/hour
     analysis.total_ev = analysis.hourly_ev * session_length_hours;
     analysis.kelly_bet_size = base_bet * (1.0 + counter.get_advantage() * 10);
+    analysis.variance_per_hand = 1.3;
+    analysis.hands_per_hour = 80;
     return analysis;
 }
 
@@ -742,6 +1122,127 @@ double AdvancedEVEngine::calculate_risk_of_ruin(double bankroll,
                                                double bet_size) const {
     if (advantage <= 0) return 1.0;
     return std::exp(-2.0 * advantage * bankroll / (variance * bet_size));
+}
+
+double AdvancedEVEngine::calculate_hand_variance(const std::vector<int>& player_hand,
+                                               int dealer_upcard,
+                                               Action chosen_action,
+                                               const DeckState& deck,
+                                               const RulesConfig& rules) const {
+    // Simplified variance calculation
+    HandData hand_data = BJLogicCore::calculate_hand_value(player_hand);
+    double base_variance = 1.15; // Typical blackjack variance
+
+    // Adjust based on hand characteristics
+    if (hand_data.is_blackjack) {
+        base_variance *= 0.8; // Lower variance for blackjack
+    } else if (hand_data.total >= 17) {
+        base_variance *= 0.9; // Lower variance for pat hands
+    } else if (hand_data.total <= 11) {
+        base_variance *= 1.1; // Higher variance for hitting hands
+    }
+
+    // Adjust for action
+    if (chosen_action == Action::DOUBLE) {
+        base_variance *= 2.0; // Doubling increases variance
+    } else if (chosen_action == Action::SPLIT) {
+        base_variance *= 1.5; // Splitting increases variance
+    }
+
+    return base_variance;
+}
+
+double AdvancedEVEngine::calculate_insurance_ev(int dealer_upcard,
+                                              const DeckState& deck,
+                                              double bet_amount) const {
+    if (dealer_upcard != 1) return -1.0; // Insurance only available against Ace
+
+    double ten_density = (double)deck.cards_remaining.at(10) / deck.total_cards;
+
+    // Insurance pays 2:1, so we need > 1/3 ten density to be profitable
+    return (ten_density * 2.0 - 1.0) * bet_amount;
+}
+
+DetailedEV AdvancedEVEngine::calculate_basic_strategy_ev(const std::vector<int>& player_hand,
+                                                        int dealer_upcard,
+                                                        const RulesConfig& rules) const {
+    // Simple basic strategy EV - this would normally be calculated once and cached
+    DetailedEV result;
+
+    Action basic_action = BJLogicCore::basic_strategy_decision(player_hand, dealer_upcard, rules);
+
+    // Rough EV estimates for basic strategy
+    switch (basic_action) {
+        case Action::STAND:
+            result.stand_ev = -0.10;
+            result.optimal_ev = -0.10;
+            break;
+        case Action::HIT:
+            result.hit_ev = -0.12;
+            result.optimal_ev = -0.12;
+            break;
+        case Action::DOUBLE:
+            result.double_ev = -0.08;
+            result.optimal_ev = -0.08;
+            break;
+        case Action::SPLIT:
+            result.split_ev = -0.09;
+            result.optimal_ev = -0.09;
+            break;
+        case Action::SURRENDER:
+            result.surrender_ev = -0.50;
+            result.optimal_ev = -0.50;
+            break;
+    }
+
+    result.optimal_action = basic_action;
+    return result;
+}
+
+DeckState AdvancedEVEngine::simulate_remaining_deck(const CardCounter& counter, std::mt19937& gen) const {
+    // Create a deck state based on the counter's information
+    auto frequencies = counter.get_remaining_card_frequencies();
+
+    DeckState deck(6); // Assume 6 decks
+
+    // Estimate remaining cards based on penetration
+    int penetration = counter.get_penetration();
+    double cards_played_ratio = penetration / 100.0;
+
+    for (int rank = 1; rank <= 10; ++rank) {
+        int original_count = (rank == 10) ? 64 : 24; // 6 decks
+        int estimated_played = static_cast<int>(original_count * cards_played_ratio);
+        deck.cards_remaining[rank] = original_count - estimated_played;
+        deck.cards_remaining[rank] = std::max(0, deck.cards_remaining[rank]);
+    }
+
+    // Recalculate total
+    deck.total_cards = 0;
+    for (const auto& pair : deck.cards_remaining) {
+        deck.total_cards += pair.second;
+    }
+
+    return deck;
+}
+
+DetailedEV AdvancedEVEngine::monte_carlo_ev_estimation(const std::vector<int>& player_hand,
+                                                     int dealer_upcard,
+                                                     const CardCounter& counter,
+                                                     const RulesConfig& rules,
+                                                     int iterations) const {
+    // Simplified Monte Carlo - just return the recursive calculation for now
+    return calculate_detailed_ev_with_recursion(player_hand, dealer_upcard, counter, rules);
+}
+
+std::pair<double, double> AdvancedEVEngine::calculate_ev_confidence_interval(double ev,
+                                                                           double variance,
+                                                                           int sample_size,
+                                                                           double confidence) const {
+    // Simple confidence interval calculation
+    double z_score = (confidence >= 0.95) ? 1.96 : 1.645; // 95% or 90%
+    double margin = z_score * std::sqrt(variance / sample_size);
+
+    return std::make_pair(ev - margin, ev + margin);
 }
 
 } // namespace bjlogic

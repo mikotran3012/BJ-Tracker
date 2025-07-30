@@ -194,6 +194,76 @@ struct SessionAnalysis {
 
 class AdvancedEVEngine {
 private:
+    // =================================================================
+    // NEW RECURSIVE DEALER PROBABILITY METHODS
+    // =================================================================
+
+    // Helper methods for dealer logic (based on John Nairn's approach)
+    bool dealer_must_hit_by_total(int total, bool is_soft, const RulesConfig& rules) const;
+    int get_card_value(int rank) const;
+
+    // Utility conversion method
+    DeckComposition convert_deck_state_to_composition(const DeckState& deck_state) const;
+
+    // Verification method
+    bool verify_dealer_probabilities(const DealerProbabilities& probs) const;
+
+    // =================================================================
+    // EXISTING METHODS (make sure these exist)
+    // =================================================================
+
+    // Cache key generation for probability results
+    uint64_t generate_probability_cache_key(
+        const std::vector<int>& dealer_hand,
+        const DeckComposition& deck,
+        const RulesConfig& rules) const;
+
+    // Helper methods for dealer probability calculations
+    bool dealer_must_hit(const std::vector<int>& dealer_hand, const RulesConfig& rules) const;
+    bool is_fresh_deck(const DeckComposition& deck) const;
+
+    // Simplified methods for basic calculations
+    double calculate_simple_hit_ev(const std::vector<int>& hand,
+                                 int dealer_upcard,
+                                 const DeckState& deck,
+                                 const RulesConfig& rules) const;
+
+    double calculate_dealer_bust_probability(int dealer_upcard,
+                                           const DeckState& deck,
+                                           const RulesConfig& rules) const;
+
+    double calculate_player_bust_probability(const std::vector<int>& hand,
+                                           const DeckState& deck) const;
+
+    void determine_optimal_action(DetailedEV& ev) const;
+
+    // Hash functions
+    uint64_t hash_scenario(const std::vector<int>& hand, int dealer_upcard) const;
+    uint64_t hash_scenario(const std::vector<int>& hand,
+                          int dealer_upcard,
+                          const DeckState& deck) const;
+
+    // Dealer probability helper methods
+    bool dealer_must_hit_by_total(int total, bool is_soft, const RulesConfig& rules) const;
+    int get_card_value(int rank) const;
+
+    // No-peek rule support
+    DealerProbabilities calculate_dealer_probabilities_no_peek(
+        int dealer_upcard,
+        const DeckComposition& deck,
+        const RulesConfig& rules) const;
+
+    // Exact stand EV calculation
+    double calculate_stand_ev_with_exact_probabilities(
+        const std::vector<int>& player_hand,
+        int dealer_upcard,
+        const DeckState& deck,
+        const RulesConfig& rules) const;
+
+    // Utility methods
+    DeckComposition convert_deck_state_to_composition(const DeckState& deck_state) const;
+    bool verify_dealer_probabilities(const DealerProbabilities& probs) const;
+
     // Split Aces one card calculation
     double calculate_split_aces_one_card_ev(int dealer_upcard,
                                            const DeckState& deck,
@@ -287,10 +357,12 @@ public:
     // =================================================================
 
     // Recursive stand EV calculation
-    double calculate_stand_ev_recursive(const std::vector<int>& player_hand,
-                                       int dealer_upcard,
-                                       const DeckState& deck,
-                                       const RulesConfig& rules) const;
+    double AdvancedEVEngine::calculate_stand_ev_recursive(const std::vector<int>& player_hand,
+                                                     int dealer_upcard,
+                                                     const DeckState& deck,
+                                                     const RulesConfig& rules) const {
+    return calculate_stand_ev_with_exact_probabilities(player_hand, dealer_upcard, deck, rules);
+}
 
     // Recursive hit EV calculation with depth control
     double calculate_hit_ev_recursive(const std::vector<int>& hand,

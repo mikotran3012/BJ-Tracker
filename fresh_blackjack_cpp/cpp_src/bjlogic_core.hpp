@@ -50,20 +50,23 @@ struct RulesConfig {
     // Core game rules
     int num_decks = 8;
     bool dealer_hits_soft_17 = false;           // ✅ Your rule: Stands on soft 17
-    int double_after_split = 0;                 // ✅ Your rule: Not allowed
+    bool double_after_split = false;            // NO double after split
     bool resplitting_allowed = false;           // ✅ Your rule: No resplitting
     int max_split_hands = 2;
     double blackjack_payout = 1.5;             // ✅ Your rule: 3:2 payout
     bool surrender_allowed = true;              // ✅ Your rule: Late surrender
+    bool dealer_peek_on_ace = true;             // Standard peek on Ace
     bool dealer_peek_on_ten = false;            // ❌ NO peek on 10-value cards (YOUR RULE)
     bool split_aces_one_card = true;            // ❌ Split Aces get only 1 card (YOUR RULE)
     bool surrender_anytime_before_21 = true;   // ❌ Extended surrender rule (YOUR RULE)
     double penetration = 0.5;                  // ✅ ~50% penetration (YOUR RULE)
 
     // Constructor with your game's exact defaults
-    RulesConfig() {
-        // All defaults set above already match your game
-    }
+    RulesConfig() : num_decks(6), dealer_hits_soft_17(true),
+                   double_after_split(2), resplitting_allowed(true),
+                   max_split_hands(4), blackjack_payout(1.5),
+                   surrender_allowed(true), dealer_peek_on_ten(true),
+                   split_aces_one_card(true) {}
 };
 
 struct EVResult {

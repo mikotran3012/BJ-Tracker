@@ -146,6 +146,257 @@ public:
         return session_analysis_to_dict(result);
     }
 
+    py::dict calculate_exact_dealer_probabilities(int dealer_upcard,
+                                            const py::dict& deck_composition,
+                                            const py::dict& rules_dict) const {
+
+    RulesConfig rules = dict_to_rules_config(rules_dict);
+
+    // Convert Python deck to DeckComposition
+    DeckComposition deck(rules.num_decks);
+    deck.total_cards = 0;
+    for (int i = 0; i < 13; ++i) deck.cards[i] = 0;
+
+    if (deck_composition.contains("cards_remaining")) {
+        py::dict cards_remaining = py::cast<py::dict>(deck_composition["cards_remaining"]);
+        for (auto item : cards_remaining) {
+            int rank = py::cast<int>(item.first);
+            int count = py::cast<int>(item.second);
+            if (rank >= 1 && rank <= 10) {
+                if (rank == 10) {
+                    // Distribute ten-value cards
+                    int per_slot = count / 4;
+                    int remainder = count % 4;
+                    for (int i = 9; i < 13; ++i) {
+                        deck.cards[i] = per_slot + (i - 9 < remainder ? 1 : 0);
+                    }
+                } else {
+                    deck.cards[rank - 1] = count;
+                }
+                deck.total_cards += count;
+            }
+        }
+    }
+
+    // Calculate exact probabilities
+    ExactDealerProbs probs = engine.recursive_dealer_engine.calculate_exact_probabilities(
+        dealer_upcard, deck, rules);
+
+    // Convert to Python dict
+    py::dict result;
+    result["prob_17"] = probs.prob_17;
+    result["prob_18"] = probs.prob_18;
+    result["prob_19"] = probs.prob_19;
+    result["prob_20"] = probs.prob_20;
+    result["prob_21"] = probs.prob_21;
+    result["prob_bust"] = probs.prob_bust;
+    result["prob_blackjack"] = probs.prob_blackjack;
+
+    // Verification data
+    result["total_probability"] = probs.get_total_probability();
+    result["recursive_calls"] = probs.recursive_calls;
+    result["from_cache"] = probs.from_cache;
+    result["is_mathematically_valid"] = engine.recursive_dealer_engine.verify_probabilities(probs);
+
+    return result;
+}
+
+py::dict calculate_no_peek_ev(const std::vector<int>& player_hand,
+                             int dealer_upcard,
+                             const py::dict& deck_composition,
+                             const py::dict& rules_dict) const {
+
+    RulesConfig rules = dict_to_rules_config(rules_dict);
+
+    // YOUR GAME RULE: No peek on 10-value cards
+    rules.dealer_peek_on_ten = false;
+
+    // Convert Python deck to DeckComposition format
+    DeckComposition deck(rules.num_decks);
+    deck.total_cards = 0;
+    for (int i = 0; i < 13; ++i) deck.cards[i] = 0;
+
+    if (deck_composition.contains("cards_remaining")) {
+        py::dict cards_remaining = py::cast<py::dict>(deck_composition["cards_remaining"]);
+        for (auto item : cards_remaining) {
+            int rank = py::cast<int>(item.first);
+            int count = py::cast<int>(item.second);
+            if (rank >= 1 && rank <= 10) {
+                if (rank == 10) {
+                    int per_slot = count / 4;
+                    int remainder = count % 4;
+                    for (int i = 9; i < 13; ++i) {
+                        deck.cards[i] = per_slot + (i - 9 < remainder ? 1 : 0);
+                    }
+                } else {
+                    deck.cards[rank - 1] = count;
+                }
+                deck.total_cards += count;
+            }
+        }
+    }
+
+    // Calculate exact dealer probabilities
+    ExactDealerProbs dealer_probs = engine.recursive_dealer_engine.calculate_exact_probabilities(
+        dealer_upcard, deck, rules);
+
+    // Convert deck to DeckState for compatibility with existing methods
+    DeckState deck_state(rules.num_decks);
+    deck_state.total_cards = deck.total_cards;
+    deck_state.cards_remaining.clear();
+
+    for (int rank = 1; rank <= 9; ++rank) {
+        deck_state.cards_remaining[rank] = deck.cards[rank - 1];
+    }
+    deck_state.cards_remaining[10] = deck.get_ten_cards();
+
+    // Calculate all EVs using exact probabilities
+    py::dict result;
+
+    // Stand EV using exact probabilities
+    result["stand_ev"] = engine.recursive_dealer_engine.calculate_stand_ev_from_exact_probs(
+        player_hand, dealer_probs, rules);
+
+    // Hit EV using recursive calculation
+    result["hit_ev"] = engine.calculate_hit_ev_recursive(player_hand, dealer_upcard, deck_state, rules, 0);
+
+    // Double EV (if valid)
+    if (player_hand.size() == 2) {
+        result["double_ev"] = engine.calculate_double_ev_recursive(player_hand, dealer_upcard, deck_state, rules);
+    } else {
+        result["double_ev"] = -2.0;
+    }
+
+    // Split EV (if valid - YOUR RULES: no resplitting, no DAS)
+    if (player_hand.size() == 2 && player_hand[0] == player_hand[1]) {
+        rules.resplitting_allowed = false;  // Your rule
+        rules.double_after_split = false;   // Your rule
+        rules.max_split_hands = 2;          // Your rule
+        result["split_ev"] = engine.calculate_split_ev_advanced(player_hand, dealer_upcard, deck_state, rules, 0);
+    } else {
+        result["split_ev"] = -2.0;
+    }
+
+    // Surrender EV (YOUR RULE: anytime before 21)
+    if (rules.surrender_allowed) {
+        HandData hand_data = BJLogicCore::calculate_hand_value(player_hand);
+        if (!hand_data.is_busted && hand_data.total < 21) {
+            result["surrender_ev"] = -0.5;
+        } else {
+            result["surrender_ev"] = -1.0;
+        }
+    } else {
+        result["surrender_ev"] = -1.0;
+    }
+
+    // Determine optimal action
+    double best_ev = result["stand_ev"].cast<double>();
+    std::string best_action = "stand";
+
+    if (result["hit_ev"].cast<double>() > best_ev) {
+        best_ev = result["hit_ev"].cast<double>();
+        best_action = "hit";
+    }
+    if (result["double_ev"].cast<double>() > best_ev) {
+        best_ev = result["double_ev"].cast<double>();
+        best_action = "double";
+    }
+    if (result["split_ev"].cast<double>() > best_ev) {
+        best_ev = result["split_ev"].cast<double>();
+        best_action = "split";
+    }
+    if (result["surrender_ev"].cast<double>() > best_ev) {
+        best_ev = result["surrender_ev"].cast<double>();
+        best_action = "surrender";
+    }
+
+    result["optimal_action"] = best_action;
+    result["optimal_ev"] = best_ev;
+
+    // Include dealer probability analysis
+    py::dict dealer_prob_dict;
+    dealer_prob_dict["prob_17"] = dealer_probs.prob_17;
+    dealer_prob_dict["prob_18"] = dealer_probs.prob_18;
+    dealer_prob_dict["prob_19"] = dealer_probs.prob_19;
+    dealer_prob_dict["prob_20"] = dealer_probs.prob_20;
+    dealer_prob_dict["prob_21"] = dealer_probs.prob_21;
+    dealer_prob_dict["prob_bust"] = dealer_probs.prob_bust;
+    dealer_prob_dict["prob_blackjack"] = dealer_probs.prob_blackjack;
+    dealer_prob_dict["total_check"] = dealer_probs.get_total_probability();
+    result["dealer_probabilities"] = dealer_prob_dict;
+
+    // Performance metadata
+    result["recursive_calls"] = dealer_probs.recursive_calls;
+    result["from_cache"] = dealer_probs.from_cache;
+    result["mathematically_valid"] = engine.recursive_dealer_engine.verify_probabilities(dealer_probs);
+
+    return result;
+}
+
+    py::dict test_recursive_dealer_engine() const {
+        py::dict test_results;
+
+        // Your game rules
+        RulesConfig your_rules;
+        your_rules.num_decks = 8;                    // Your rule
+        your_rules.dealer_hits_soft_17 = false;     // Your rule: stands on soft 17
+        your_rules.dealer_peek_on_ten = false;      // Your rule: no peek on 10
+        your_rules.surrender_allowed = true;        // Your rule: late surrender
+        your_rules.double_after_split = false;      // Your rule: no DAS
+        your_rules.resplitting_allowed = false;     // Your rule: no resplit
+        your_rules.blackjack_payout = 1.5;         // Your rule: 3:2
+
+        DeckComposition fresh_deck(8);  // 8 deck fresh shoe
+
+        // Test dealer 6 upcard (should bust frequently)
+        ExactDealerProbs dealer_6_probs = engine.recursive_dealer_engine.calculate_exact_probabilities(
+            6, fresh_deck, your_rules);
+
+        test_results["dealer_6_total_prob"] = dealer_6_probs.get_total_probability();
+        test_results["dealer_6_bust_prob"] = dealer_6_probs.prob_bust;
+        test_results["dealer_6_valid"] = engine.recursive_dealer_engine.verify_probabilities(dealer_6_probs);
+
+        // Test dealer Ace with blackjack check
+        ExactDealerProbs dealer_ace_probs = engine.recursive_dealer_engine.calculate_exact_probabilities(
+            1, fresh_deck, your_rules);
+
+        test_results["dealer_ace_total_prob"] = dealer_ace_probs.get_total_probability();
+        test_results["dealer_ace_blackjack_prob"] = dealer_ace_probs.prob_blackjack;
+        test_results["dealer_ace_valid"] = engine.recursive_dealer_engine.verify_probabilities(dealer_ace_probs);
+
+        // Test dealer 10 with no peek rule
+        ExactDealerProbs dealer_10_probs = engine.recursive_dealer_engine.calculate_exact_probabilities(
+            10, fresh_deck, your_rules);
+
+        test_results["dealer_10_total_prob"] = dealer_10_probs.get_total_probability();
+        test_results["dealer_10_blackjack_prob"] = dealer_10_probs.prob_blackjack;
+        test_results["dealer_10_valid"] = engine.recursive_dealer_engine.verify_probabilities(dealer_10_probs);
+
+        // Test all dealer upcards should sum to 1.0
+        std::vector<bool> all_valid;
+        for (int upcard = 1; upcard <= 10; ++upcard) {
+            ExactDealerProbs probs = engine.recursive_dealer_engine.calculate_exact_probabilities(
+                upcard, fresh_deck, your_rules);
+            all_valid.push_back(engine.recursive_dealer_engine.verify_probabilities(probs));
+        }
+
+        test_results["all_upcards_valid"] = std::all_of(all_valid.begin(), all_valid.end(), [](bool v) { return v; });
+
+        // Performance metrics
+        test_results["cache_hits"] = engine.recursive_dealer_engine.get_cache_hits();
+        test_results["cache_misses"] = engine.recursive_dealer_engine.get_cache_misses();
+        test_results["cache_size"] = static_cast<int>(engine.recursive_dealer_engine.get_cache_size());
+
+        test_results["test_passed"] = (
+            test_results["dealer_6_valid"].cast<bool>() &&
+            test_results["dealer_ace_valid"].cast<bool>() &&
+            test_results["dealer_10_valid"].cast<bool>() &&
+            test_results["all_upcards_valid"].cast<bool>()
+        );
+
+        return test_results;
+    }
+
     // =================================================================
     // OPTIMIZATION AND RISK ANALYSIS
     // =================================================================
@@ -593,6 +844,17 @@ void add_advanced_ev_bindings(py::module& m) {
         .def("set_simulation_depth", &PyAdvancedEVEngine::set_simulation_depth)
         .def("set_precision_threshold", &PyAdvancedEVEngine::set_precision_threshold)
         .def("enable_composition_dependent", &PyAdvancedEVEngine::enable_composition_dependent);
+
+        .def("calculate_exact_dealer_probabilities", &PyAdvancedEVEngine::calculate_exact_dealer_probabilities,
+         "Calculate mathematically exact dealer probabilities using recursive method",
+         py::arg("dealer_upcard"), py::arg("deck_composition"), py::arg("rules"))
+
+    .def("calculate_no_peek_ev", &PyAdvancedEVEngine::calculate_no_peek_ev,
+         "Calculate EV with your game's no-peek rule on 10-value cards",
+         py::arg("hand"), py::arg("dealer_upcard"), py::arg("deck_composition"), py::arg("rules"))
+
+    .def("test_recursive_dealer_engine", &PyAdvancedEVEngine::test_recursive_dealer_engine,
+         "Test recursive dealer engine for mathematical correctness")
 
     // =================================================================
     // SPECIALIZED CALCULATORS

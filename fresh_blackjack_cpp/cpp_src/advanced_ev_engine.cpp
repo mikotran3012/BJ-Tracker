@@ -668,67 +668,28 @@ uint64_t AdvancedEVEngine::hash_scenario(const std::vector<int>& hand, int deale
 // RECURSIVE EV CALCULATION METHODS - ADD TO END OF FILE
 // =============================================================================
 
-double AdvancedEVEngine::calculate_stand_ev_recursive(const std::vector<int>& player_hand,
-                                                     int dealer_upcard,
-                                                     const DeckState& deck,
-                                                     const RulesConfig& rules) const {
+double AdvancedEVEngine::calculate_stand_ev_recursive(
+    const std::vector<int>& player_hand,
+    int dealer_upcard,
+    const DeckState& deck,
+    const RulesConfig& rules) const {
 
-    HandData player_data = BJLogicCore::calculate_hand_value(player_hand);
+    // Convert DeckState to DeckComposition for recursive engine
+    DeckComposition deck_comp = recursive_dealer_engine.convert_from_deck_state(deck);
 
-    if (player_data.is_busted) return -1.0;
-    if (player_data.total < 1) return -1.0;
+    // Calculate EXACT dealer probabilities using recursive method
+    ExactDealerProbs dealer_probs = recursive_dealer_engine.calculate_exact_probabilities(
+        dealer_upcard, deck_comp, rules);
 
-    // Convert DeckState to DeckComposition for your existing dealer probability engine
-    DeckComposition deck_comp(deck.num_decks);
-    for (const auto& pair : deck.cards_remaining) {
-        int rank = pair.first;
-        int count = pair.second;
-
-        if (rank >= 1 && rank <= 9) {
-            deck_comp.cards_remaining[rank-1] = count;
-        } else if (rank == 10) {
-            // Distribute 10-value cards evenly
-            int per_rank = count / 4;
-            deck_comp.cards_remaining[9] = per_rank;   // 10
-            deck_comp.cards_remaining[10] = per_rank;  // J
-            deck_comp.cards_remaining[11] = per_rank;  // Q
-            deck_comp.cards_remaining[12] = per_rank;  // K
-        }
-    }
-    deck_comp.total_cards = deck.total_cards;
-
-    // Use your existing advanced dealer probability engine
-    DealerProbabilities dealer_probs = calculate_dealer_probabilities_advanced(dealer_upcard, deck_comp, rules);
-
-    double ev = 0.0;
-
-    // Player wins against dealer bust
-    ev += dealer_probs.bust_prob * 1.0;
-
-    // Compare against dealer totals 17-21
-    if (player_data.total > 17) ev += dealer_probs.total_17_prob * 1.0;
-    else if (player_data.total < 17) ev += dealer_probs.total_17_prob * (-1.0);
-
-    if (player_data.total > 18) ev += dealer_probs.total_18_prob * 1.0;
-    else if (player_data.total < 18) ev += dealer_probs.total_18_prob * (-1.0);
-
-    if (player_data.total > 19) ev += dealer_probs.total_19_prob * 1.0;
-    else if (player_data.total < 19) ev += dealer_probs.total_19_prob * (-1.0);
-
-    if (player_data.total > 20) ev += dealer_probs.total_20_prob * 1.0;
-    else if (player_data.total < 20) ev += dealer_probs.total_20_prob * (-1.0);
-
-    if (player_data.total > 21) ev += dealer_probs.total_21_prob * 1.0;
-    else if (player_data.total < 21) ev += dealer_probs.total_21_prob * (-1.0);
-
-    // Blackjack bonus
-    if (player_data.is_blackjack && player_hand.size() == 2) {
-        double dealer_bj_prob = dealer_probs.blackjack_prob;
-        double player_bj_win_prob = dealer_probs.total_21_prob - dealer_bj_prob;
-        ev += player_bj_win_prob * (rules.blackjack_payout - 1.0);
+    // Verify probabilities (debugging - remove in production)
+    if (!recursive_dealer_engine.verify_probabilities(dealer_probs)) {
+        // This should never happen with correct implementation
+        // You might want to log a warning here
     }
 
-    return ev;
+    // Calculate stand EV using exact probabilities
+    return recursive_dealer_engine.calculate_stand_ev_from_exact_probs(
+        player_hand, dealer_probs, rules);
 }
 
 double AdvancedEVEngine::calculate_hit_ev_recursive(const std::vector<int>& hand,

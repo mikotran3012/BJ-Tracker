@@ -25,9 +25,10 @@ bjlogic_extension = Extension(
         'cpp_src/bjlogic_core.cpp',
         'cpp_src/basic_strategy.cpp',
         'cpp_src/card_counting.cpp',
-        'cpp_src/advanced_ev_engine.cpp',  # Add the engine
-        'cpp_src/enhanced_bindings.cpp',   # Keep existing bindings
-        # Skip advanced_ev_bindings.cpp for now
+        'cpp_src/advanced_ev_engine.cpp',
+        'cpp_src/enhanced_bindings.cpp',
+        'cpp_src/recursive_dealer_engine.cpp',
+        'cpp_src/advanced_ev_bindings.cpp',
     ],
     include_dirs=[
         pybind11.get_include(),

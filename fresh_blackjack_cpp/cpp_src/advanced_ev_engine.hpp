@@ -9,6 +9,7 @@
 
 #include "bjlogic_core.hpp"
 #include "card_counting.hpp"
+#include "recursive_dealer_engine.hpp"
 #include <unordered_map>
 #include <array>
 #include <vector>
@@ -198,6 +199,9 @@ private:
     double calculate_split_aces_one_card_ev(int dealer_upcard,
                                            const DeckState& deck,
                                            const RulesConfig& rules) const;
+
+    // NEW: Recursive dealer engine instance
+    mutable RecursiveDealerEngine recursive_dealer_engine;
 
     // Caching for performance
     mutable std::unordered_map<uint64_t, DetailedEV> ev_cache;

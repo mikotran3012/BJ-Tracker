@@ -119,7 +119,10 @@ DealerProbabilities AdvancedEVEngine::calculate_dealer_probabilities_recursive(
     double total_probability = 0.0;
 
     for (int next_card_rank = 1; next_card_rank <= 13; ++next_card_rank) {
-        int cards_of_rank = deck.get_remaining(next_card_rank);
+        // Retrieve remaining count directly from the underlying card array.  DeckComposition
+        // stores counts for ranks 1-13 in the `cards` array (0-based index).  There is no
+        // get_remaining() method in the current version, so we access the array directly.
+        int cards_of_rank = deck.cards[next_card_rank - 1];
         if (cards_of_rank <= 0) continue;
 
         // Calculate probability of drawing this card
@@ -133,9 +136,12 @@ DealerProbabilities AdvancedEVEngine::calculate_dealer_probabilities_recursive(
         std::vector<int> new_dealer_hand = dealer_hand;
         new_dealer_hand.push_back(card_value);
 
-        // Update deck composition
+        // Update deck composition: decrement the count of this rank and update total_cards
         DeckComposition new_deck = deck;
-        new_deck.remove_card(next_card_rank);
+        if (new_deck.cards[next_card_rank - 1] > 0) {
+            new_deck.cards[next_card_rank - 1]--;
+            new_deck.total_cards--;
+        }
 
         // Recursive call for this branch
         DealerProbabilities branch_result = calculate_dealer_probabilities_recursive(
@@ -322,13 +328,20 @@ DealerProbabilities AdvancedEVEngine::calculate_dealer_probabilities_with_remove
             if (card == 10) {
                 // Remove from 10,J,Q,K proportionally
                 for (int rank = 10; rank <= 13; ++rank) {
-                    if (deck.get_remaining(rank) > 0) {
-                        deck.remove_card(rank);
+                    // DeckComposition stores per-rank counts in a 0-indexed array `cards`.
+                    // Check if there is at least one card of this rank.
+                    if (deck.cards[rank - 1] > 0) {
+                        deck.cards[rank - 1]--;
+                        deck.total_cards--;
                         break;
                     }
                 }
             } else {
-                deck.remove_card(card);
+                // Remove a single card of the specified rank if present
+                if (deck.cards[card - 1] > 0) {
+                    deck.cards[card - 1]--;
+                    deck.total_cards--;
+                }
             }
         }
     }
@@ -350,7 +363,7 @@ DetailedEV AdvancedEVEngine::calculate_true_count_ev(const std::vector<int>& pla
     // Create deck state for calculations
     DeckState deck(rules.num_decks);
 
-    // ✅ REPLACE HARDCODED VALUES WITH REAL CALCULATIONS:
+    // âœ… REPLACE HARDCODED VALUES WITH REAL CALCULATIONS:
     result.stand_ev = calculate_stand_ev_recursive(player_hand, dealer_upcard, deck, rules);
     result.hit_ev = calculate_hit_ev_recursive(player_hand, dealer_upcard, deck, rules, 0);
 
@@ -528,7 +541,8 @@ bool AdvancedEVEngine::is_fresh_deck(const DeckComposition& deck) const {
     int expected_per_rank = deck.total_cards / 52 * 4;
 
     for (int rank = 1; rank <= 9; ++rank) {
-        if (deck.get_remaining(rank) != expected_per_rank) {
+        // Each rank 1-9 corresponds to index rank-1 in the cards array
+        if (deck.cards[rank - 1] != expected_per_rank) {
             return false;
         }
     }
@@ -537,7 +551,8 @@ bool AdvancedEVEngine::is_fresh_deck(const DeckComposition& deck) const {
     int expected_tens = expected_per_rank * 4;
     int actual_tens = 0;
     for (int rank = 10; rank <= 13; ++rank) {
-        actual_tens += deck.get_remaining(rank);
+        // Indices 9-12 represent 10, J, Q, K
+        actual_tens += deck.cards[rank - 1];
     }
 
     return actual_tens == expected_tens;
@@ -1225,7 +1240,7 @@ std::pair<double, double> AdvancedEVEngine::calculate_ev_confidence_interval(dou
     return std::make_pair(ev - margin, ev + margin);
 }
 
-// 🔧 ADD the missing function BEFORE calculate_ev_with_provided_composition
+// ðŸ”§ ADD the missing function BEFORE calculate_ev_with_provided_composition
 
 double AdvancedEVEngine::calculate_split_aces_one_card_ev(int dealer_upcard,
                                                          const DeckState& deck,
@@ -1267,7 +1282,7 @@ double AdvancedEVEngine::calculate_split_aces_one_card_ev(int dealer_upcard,
     return total_ev;
 }
 
-// ✅ NOW the calculate_ev_with_provided_composition function (FIXED)
+// âœ… NOW the calculate_ev_with_provided_composition function (FIXED)
 DetailedEV AdvancedEVEngine::calculate_ev_with_provided_composition(
     const std::vector<int>& player_hand,
     int dealer_upcard,
@@ -1296,7 +1311,7 @@ DetailedEV AdvancedEVEngine::calculate_ev_with_provided_composition(
         playing_deck.total_cards--;
     }
 
-    // 🔥 CALCULATE ALL EVs WITH EXACT COMPOSITION
+    // ðŸ”¥ CALCULATE ALL EVs WITH EXACT COMPOSITION
 
     // Stand EV using exact dealer probabilities
     result.stand_ev = calculate_stand_ev_recursive(player_hand, dealer_upcard, playing_deck, rules);
@@ -1372,6 +1387,23 @@ DetailedEV AdvancedEVEngine::calculate_ev_with_provided_composition(
     result.advantage_over_basic = result.optimal_ev - basic_ev.optimal_ev;
 
     return result;
+}
+
+// Statistical significance testing implementation
+bool is_ev_difference_significant(double ev1, double ev2,
+                                double variance1, double variance2,
+                                int sample_size, double alpha) {
+    // Calculate the standard error of the difference
+    double se_diff = std::sqrt((variance1 + variance2) / sample_size);
+
+    // Calculate the z-score
+    double z_score = std::abs(ev1 - ev2) / se_diff;
+
+    // For alpha = 0.05, critical z-value is 1.96
+    // For alpha = 0.01, critical z-value is 2.576
+    double critical_z = (alpha <= 0.01) ? 2.576 : 1.96;
+
+    return z_score > critical_z;
 }
 
 } // namespace bjlogic

@@ -46,10 +46,10 @@ py::dict deck_state_to_dict(const DeckState& deck) {
 }
 
 // Convert Python dict to RulesConfig
-RulesConfig dict_to_rules_config(const py::dict& rules_dict) {
+static RulesConfig dict_to_rules_config(const py::dict& rules_dict) {
     RulesConfig rules;
 
-    // ✅ FIXED: Set defaults to YOUR game rules first
+    // Ã¢Å“â€¦ FIXED: Set defaults to YOUR game rules first
     rules.num_decks = 8;                         // Your rule: 8 decks
     rules.dealer_hits_soft_17 = false;           // Your rule: Stands on soft 17
     rules.double_after_split = 0;                // Your rule: Not allowed
@@ -191,10 +191,10 @@ py::dict py_create_rules_config() {
 
 // Test function for Phase 2.2
 std::string test_strategy_extension() {
-    return "🎯 Complete Basic Strategy Tables successfully implemented!";
+    return "Ã°Å¸Å½Â¯ Complete Basic Strategy Tables successfully implemented!";
 }
 
-// Converter: Your comp_panel format → C++ DeckState
+// Converter: Your comp_panel format Ã¢â€ â€™ C++ DeckState
 DeckState python_composition_to_deck_state(const py::dict& composition, int num_decks) {
     DeckState deck(num_decks);
 
@@ -319,7 +319,7 @@ py::dict py_calculate_ev_from_comp_panel(const std::vector<int>& hand,
 
 // Test function for Phase 2.3
 std::string test_counting_extension() {
-    return "🎯 Advanced Card Counting & Probability Engine successfully implemented!";
+    return "Ã°Å¸Å½Â¯ Advanced Card Counting & Probability Engine successfully implemented!";
 }
 
 // Simple card counter wrapper
@@ -780,9 +780,11 @@ PYBIND11_MODULE(bjlogic_cpp, m) {
     // DeckComposition structure
     py::class_<bjlogic::DeckComposition>(m, "DeckComposition")
         .def(py::init<int>(), py::arg("num_decks") = 6)
+        // Bind only the API supported by the current DeckComposition implementation. The add_card and
+        // get_remaining methods have been removed from DeckComposition, so we omit those bindings.
         .def("remove_card", &bjlogic::DeckComposition::remove_card)
-        .def("add_card", &bjlogic::DeckComposition::add_card)
-        .def("get_remaining", &bjlogic::DeckComposition::get_remaining)
+        // .def("add_card", &bjlogic::DeckComposition::add_card)  // removed
+        // .def("get_remaining", &bjlogic::DeckComposition::get_remaining)  // removed
         .def("get_ten_cards", &bjlogic::DeckComposition::get_ten_cards)
         .def_readonly("total_cards", &bjlogic::DeckComposition::total_cards);
 
@@ -797,7 +799,7 @@ PYBIND11_MODULE(bjlogic_cpp, m) {
 
     // Test function for advanced EV engine
     m.def("test_advanced_ev_engine", []() {
-        return "🎯 Advanced EV Calculation Engine successfully implemented!";
+        return "Ã°Å¸Å½Â¯ Advanced EV Calculation Engine successfully implemented!";
     });
 
     // Python-friendly wrapper that returns a dict for EV calculations

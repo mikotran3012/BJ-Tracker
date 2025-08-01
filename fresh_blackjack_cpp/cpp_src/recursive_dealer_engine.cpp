@@ -318,26 +318,11 @@ double RecursiveDealerEngine::calculate_stand_ev_from_exact_probs(
 
 // ADD a verification method to check the probabilities make sense:
 
-bool RecursiveDealerEngine::verify_probabilities_detailed(const ExactDealerProbs& probs) const {
-    double total = probs.get_total_probability();
-
-    // Check total sums to 1.0
-    if (std::abs(total - 1.0) > 0.000001) {
-        return false;
-    }
-
-    // Check all probabilities are non-negative
-    if (probs.prob_17 < 0 || probs.prob_18 < 0 || probs.prob_19 < 0 ||
-        probs.prob_20 < 0 || probs.prob_21 < 0 || probs.prob_bust < 0 ||
-        probs.prob_blackjack < 0) {
-        return false;
-    }
-
-    // Check blackjack is only possible with Ace or 10 upcard
-    // (This would need to be checked at a higher level where we know the upcard)
-
-    return true;
-}
+// Note: The verify_probabilities_detailed function is intentionally omitted here
+// because it is not declared in the RecursiveDealerEngine class definition. If
+// detailed probability verification is required, consider implementing it as
+// a standalone helper outside the class. The existing verify_probabilities
+// function provides a basic sanity check by ensuring the probabilities sum to 1.
 
 // =============================================================================
 // UTILITY FUNCTIONS

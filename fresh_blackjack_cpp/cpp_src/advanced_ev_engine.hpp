@@ -101,63 +101,6 @@ struct DealerProbabilities {
     }
 };
 
-struct DeckComposition {
-    std::array<int, 13> cards_remaining;  // A,2,3,4,5,6,7,8,9,T,J,Q,K
-    int total_cards;
-
-    DeckComposition(int num_decks = 6) : total_cards(52 * num_decks) {
-        // Initialize standard composition
-        for (int i = 0; i < 9; ++i) {  // A,2-9
-            cards_remaining[i] = 4 * num_decks;
-        }
-        // 10,J,Q,K all worth 10
-        for (int i = 9; i < 13; ++i) {
-            cards_remaining[i] = 4 * num_decks;
-        }
-    }
-
-    // Remove a card and update total
-    void remove_card(int rank) {
-        if (rank >= 1 && rank <= 13 && cards_remaining[rank-1] > 0) {
-            cards_remaining[rank-1]--;
-            total_cards--;
-        }
-    }
-
-    // Add a card back (for backtracking)
-    void add_card(int rank) {
-        if (rank >= 1 && rank <= 13) {
-            cards_remaining[rank-1]++;
-            total_cards++;
-        }
-    }
-
-    // Get number of cards remaining for a rank
-    int get_remaining(int rank) const {
-        if (rank >= 1 && rank <= 13) return cards_remaining[rank-1];
-        return 0;
-    }
-
-    // Get total 10-value cards (10,J,Q,K)
-    int get_ten_cards() const {
-        return cards_remaining[9] + cards_remaining[10] + cards_remaining[11] + cards_remaining[12];
-    }
-
-    // Generate cache key based on remaining cards
-    uint64_t get_cache_key() const {
-        uint64_t key = 0;
-        for (int i = 0; i < 13; ++i) {
-            key = key * 53 + cards_remaining[i];  // 53 is prime > max cards per rank
-        }
-        return key;
-    }
-
-    // Check if deck is valid
-    bool is_valid() const {
-        return total_cards >= 0 && total_cards <= 416; // Max 8 decks
-    }
-};
-
 struct ScenarioAnalysis {
     std::vector<int> player_hand;
     int dealer_upcard;
@@ -194,7 +137,7 @@ struct SessionAnalysis {
 // =============================================================================
 
 class AdvancedEVEngine {
-private:
+public:
     // Split Aces one card calculation
     double calculate_split_aces_one_card_ev(int dealer_upcard,
                                            const DeckState& deck,

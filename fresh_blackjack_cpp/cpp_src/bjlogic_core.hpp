@@ -50,7 +50,7 @@ struct RulesConfig {
     // Core game rules
     int num_decks = 8;
     bool dealer_hits_soft_17 = false;           // ✅ Your rule: Stands on soft 17
-    bool double_after_split = false;            // NO double after split
+    int double_after_split = 0;            // NO double after split
     bool resplitting_allowed = false;           // ✅ Your rule: No resplitting
     int max_split_hands = 2;
     double blackjack_payout = 1.5;             // ✅ Your rule: 3:2 payout

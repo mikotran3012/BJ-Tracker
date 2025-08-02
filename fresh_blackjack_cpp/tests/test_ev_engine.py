@@ -8,18 +8,18 @@ import bjlogic_cpp
 
 
 def create_your_game_rules():
-    """Create rules dict with YOUR specific game rules"""
+    """Create rules object with YOUR specific game rules"""
     rules = bjlogic_cpp.create_rules_config()
 
     # Explicitly set YOUR rules (though defaults should match)
-    rules['num_decks'] = 8
-    rules['dealer_hits_soft_17'] = False  # Dealer STANDS on soft 17
-    rules['surrender_allowed'] = True  # Late surrender (extended)
-    rules['blackjack_payout'] = 1.5  # 3:2
-    rules['double_after_split'] = 0  # NOT allowed
-    rules['resplitting_allowed'] = False  # NOT allowed
-    rules['max_split_hands'] = 2  # Only 1 split allowed
-    rules['dealer_peek_on_ten'] = False  # NO peek on 10s
+    rules.num_decks = 8
+    rules.dealer_hits_soft_17 = False  # Dealer STANDS on soft 17
+    rules.surrender_allowed = True  # Late surrender (extended)
+    rules.blackjack_payout = 1.5  # 3:2
+    rules.double_after_split = 0  # NOT allowed
+    rules.resplitting_allowed = False  # NOT allowed
+    rules.max_split_hands = 2  # Only 1 split allowed
+    rules.dealer_peek_on_ten = False  # NO peek on 10s
 
     return rules
 
@@ -48,23 +48,17 @@ def test_basic_ev_calculation():
     hand = [10, 6]
     dealer_upcard = 10
 
-    result = engine.calculate_true_count_ev(
-        hand=hand,
-        dealer_upcard=dealer_upcard,
-        true_count=0.0,
-        rules=rules
-    )
+    result = engine.calculate_true_count_ev(hand, dealer_upcard, 0.0, rules)
 
-    print(f"  Hand: {hand} vs Dealer: {dealer_upcard}")
-    print(f"  Stand EV: {result['stand_ev']:.4f}")
-    print(f"  Hit EV: {result['hit_ev']:.4f}")
-    print(f"  Double EV: {result['double_ev']:.4f}")
-    print(f"  Surrender EV: {result['surrender_ev']:.4f} (should be -0.5)")
-    print(f"  Optimal action: {result['optimal_action']}")
-    print(f"  Optimal EV: {result['optimal_ev']:.4f}")
+    print(f"  Stand EV: {result.stand_ev:.4f}")
+    print(f"  Hit EV: {result.hit_ev:.4f}")
+    print(f"  Double EV: {result.double_ev:.4f}")
+    print(f"  Surrender EV: {result.surrender_ev:.4f} (should be -0.5)")
+    print(f"  Optimal action: {result.optimal_action}")
+    print(f"  Optimal EV: {result.optimal_ev:.4f}")
 
     # Verify surrender is available (YOUR rule)
-    if result['surrender_ev'] == -0.5:
+    if result.surrender_ev == -0.5:
         print("  ✓ Late surrender correctly available")
     else:
         print("  ✗ Late surrender NOT available (should be!)")
@@ -92,12 +86,7 @@ def test_no_peek_rule():
     hand = [11]  # Player has 11
     dealer_upcard = 10
 
-    result = engine.calculate_no_peek_ev(
-        hand=hand,
-        dealer_upcard=dealer_upcard,
-        deck_composition=deck_comp,
-        rules=rules
-    )
+    result = engine.calculate_no_peek_ev(hand, dealer_upcard, deck_comp, rules)
 
     print(f"  Hand: 11 vs Dealer: 10 (no peek)")
     print(f"  Double EV: {result['double_ev']:.4f}")
@@ -118,17 +107,12 @@ def test_split_aces_rule():
     hand = [1, 1]  # Pair of Aces
     dealer_upcard = 6
 
-    result = engine.calculate_true_count_ev(
-        hand=hand,
-        dealer_upcard=dealer_upcard,
-        true_count=0.0,
-        rules=rules
-    )
+    result = engine.calculate_true_count_ev(hand, dealer_upcard, 0.0, rules)
 
     print(f"  Hand: A,A vs Dealer: {dealer_upcard}")
-    print(f"  Split EV: {result['split_ev']:.4f}")
-    print(f"  Stand EV: {result['stand_ev']:.4f}")
-    print(f"  Hit EV: {result['hit_ev']:.4f}")
+    print(f"  Split EV: {result.split_ev:.4f}")
+    print(f"  Stand EV: {result.stand_ev:.4f}")
+    print(f"  Hit EV: {result.hit_ev:.4f}")
     print("  Note: Split Aces receive only 1 card each")
     print()
 
@@ -139,7 +123,7 @@ def test_no_double_after_split():
 
     rules = create_your_game_rules()
 
-    print(f"  Double after split allowed: {rules['double_after_split']}")
+    print(f"  Double after split allowed: {rules.double_after_split}")
     print("  Expected: 0 (not allowed)")
     print("  This means after splitting, you can only hit or stand")
     print()

@@ -101,8 +101,7 @@ py::dict py_calculate_hand_value(const std::vector<int>& cards) {
 // Enhanced basic strategy wrapper
 std::string py_basic_strategy_decision(const std::vector<int>& hand_cards,
                                       int dealer_upcard,
-                                      const py::dict& rules_dict) {
-    RulesConfig rules = dict_to_rules_config(rules_dict);
+                                      const RulesConfig& rules) {
     Action action = BJLogicCore::basic_strategy_decision(hand_cards, dealer_upcard, rules);
     return BJLogicCore::action_to_string(action);
 }
@@ -110,9 +109,8 @@ std::string py_basic_strategy_decision(const std::vector<int>& hand_cards,
 // Strategy analysis wrapper
 bool py_is_basic_strategy_optimal(const std::vector<int>& hand_cards,
                                  int dealer_upcard,
-                                 const py::dict& rules_dict,
+                                 const RulesConfig& rules,
                                  const std::string& chosen_action_str) {
-    RulesConfig rules = dict_to_rules_config(rules_dict);
 
     // Convert string to Action enum
     Action chosen_action = Action::STAND;  // Default
@@ -127,9 +125,8 @@ bool py_is_basic_strategy_optimal(const std::vector<int>& hand_cards,
 // Strategy deviation cost wrapper
 double py_get_strategy_deviation_cost(const std::vector<int>& hand_cards,
                                      int dealer_upcard,
-                                     const py::dict& rules_dict,
+                                     const RulesConfig& rules,
                                      const std::string& chosen_action_str) {
-    RulesConfig rules = dict_to_rules_config(rules_dict);
 
     // Convert string to Action enum
     Action chosen_action = Action::STAND;  // Default
@@ -142,8 +139,7 @@ double py_get_strategy_deviation_cost(const std::vector<int>& hand_cards,
 }
 
 // Batch strategy analysis
-py::list py_batch_strategy_analysis(const py::list& scenarios, const py::dict& rules_dict) {
-    RulesConfig rules = dict_to_rules_config(rules_dict);
+py::list py_batch_strategy_analysis(const py::list& scenarios, const RulesConfig& rules) {
     py::list results;
 
     for (const auto& scenario : scenarios) {
@@ -175,18 +171,9 @@ py::dict py_create_deck_state(int num_decks = 6) {
 }
 
 // Create default rules
-py::dict py_create_rules_config() {
-    RulesConfig rules;
-    py::dict result;
-    result["num_decks"] = rules.num_decks;
-    result["dealer_hits_soft_17"] = rules.dealer_hits_soft_17;
-    result["double_after_split"] = rules.double_after_split;
-    result["resplitting_allowed"] = rules.resplitting_allowed;
-    result["max_split_hands"] = rules.max_split_hands;
-    result["blackjack_payout"] = rules.blackjack_payout;
-    result["surrender_allowed"] = rules.surrender_allowed;
-    result["dealer_peek_on_ten"] = rules.dealer_peek_on_ten;
-    return result;
+// Returned as a C++ object so Python callers can configure attributes
+RulesConfig py_create_rules_config() {
+    return RulesConfig();
 }
 
 // Test function for Phase 2.2
@@ -257,7 +244,7 @@ py::dict py_extract_composition_from_panel(py::object comp_panel) {
 py::dict py_calculate_ev_from_comp_panel(const std::vector<int>& hand,
                                         int dealer_upcard,
                                         py::object comp_panel,
-                                        const py::dict& rules_dict,
+                                        const RulesConfig& rules,
                                         const std::string& counter_system = "Hi-Lo") {
     try {
         // Extract composition from your panel
@@ -267,9 +254,8 @@ py::dict py_calculate_ev_from_comp_panel(const std::vector<int>& hand,
             return composition; // Return error if extraction failed
         }
 
-        // Create engine and rules
+        // Create engine and use provided rules
         bjlogic::AdvancedEVEngine engine(8, 0.001);
-        RulesConfig rules = dict_to_rules_config(rules_dict);
 
         // Convert composition to DeckState
         int decks = py::cast<int>(composition["decks"]);
@@ -762,6 +748,22 @@ PYBIND11_MODULE(bjlogic_cpp, m) {
         .def_readonly("optimal_ev", &bjlogic::DetailedEV::optimal_ev)
         .def_readonly("true_count_adjustment", &bjlogic::DetailedEV::true_count_adjustment)
         .def_readonly("variance", &bjlogic::DetailedEV::variance);
+
+    // RulesConfig structure exposed for Python-side configuration
+    py::class_<bjlogic::RulesConfig>(m, "RulesConfig")
+        .def(py::init<>())
+        .def_readwrite("num_decks", &bjlogic::RulesConfig::num_decks)
+        .def_readwrite("dealer_hits_soft_17", &bjlogic::RulesConfig::dealer_hits_soft_17)
+        .def_readwrite("double_after_split", &bjlogic::RulesConfig::double_after_split)
+        .def_readwrite("resplitting_allowed", &bjlogic::RulesConfig::resplitting_allowed)
+        .def_readwrite("max_split_hands", &bjlogic::RulesConfig::max_split_hands)
+        .def_readwrite("blackjack_payout", &bjlogic::RulesConfig::blackjack_payout)
+        .def_readwrite("surrender_allowed", &bjlogic::RulesConfig::surrender_allowed)
+        .def_readwrite("dealer_peek_on_ace", &bjlogic::RulesConfig::dealer_peek_on_ace)
+        .def_readwrite("dealer_peek_on_ten", &bjlogic::RulesConfig::dealer_peek_on_ten)
+        .def_readwrite("split_aces_one_card", &bjlogic::RulesConfig::split_aces_one_card)
+        .def_readwrite("surrender_anytime_before_21", &bjlogic::RulesConfig::surrender_anytime_before_21)
+        .def_readwrite("penetration", &bjlogic::RulesConfig::penetration);
 
     // DealerProbabilities structure
     py::class_<bjlogic::DealerProbabilities>(m, "DealerProbabilities")

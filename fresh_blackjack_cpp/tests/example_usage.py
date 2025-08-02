@@ -1,18 +1,20 @@
 # example_usage.py
 import bjlogic_cpp
 
+import bjlogic_cpp
+
 
 def create_your_game_rules():
     """YOUR specific game rules"""
     rules = bjlogic_cpp.create_rules_config()
-    rules['num_decks'] = 8
-    rules['dealer_hits_soft_17'] = False
-    rules['surrender_allowed'] = True
-    rules['blackjack_payout'] = 1.5
-    rules['double_after_split'] = 0
-    rules['resplitting_allowed'] = False
-    rules['max_split_hands'] = 2
-    rules['dealer_peek_on_ten'] = False
+    rules.num_decks = 8
+    rules.dealer_hits_soft_17 = False
+    rules.surrender_allowed = True
+    rules.blackjack_payout = 1.5
+    rules.double_after_split = 0
+    rules.resplitting_allowed = False
+    rules.max_split_hands = 2
+    rules.dealer_peek_on_ten = False
     return rules
 
 
@@ -46,12 +48,12 @@ def analyze_common_decisions():
         result = engine.calculate_true_count_ev(hand, dealer, 0.0, rules)
 
         print(f"Basic Strategy: {basic}")
-        print(f"EVs: Stand={result['stand_ev']:.4f}, "
-              f"Hit={result['hit_ev']:.4f}, "
-              f"Double={result['double_ev']:.4f}, "
-              f"Split={result['split_ev']:.4f}, "
-              f"Surrender={result['surrender_ev']:.4f}")
-        print(f"Best: {result['optimal_action']} (EV: {result['optimal_ev']:.4f})")
+        print(f"EVs: Stand={result.stand_ev:.4f}, "
+              f"Hit={result.hit_ev:.4f}, "
+              f"Double={result.double_ev:.4f}, "
+              f"Split={result.split_ev:.4f}, "
+              f"Surrender={result.surrender_ev:.4f}")
+        print(f"Best: {result.optimal_action} (EV: {result.optimal_ev:.4f})")
 
 
 def test_extended_surrender():
@@ -74,7 +76,7 @@ def test_extended_surrender():
     # surrender with 3+ cards. This shows what it currently returns.
     result = engine.calculate_true_count_ev(hand, dealer_upcard, 0.0, rules)
 
-    print(f"Surrender EV: {result['surrender_ev']:.4f}")
+    print(f"Surrender EV: {result.surrender_ev:.4f}")
     print("Note: Standard implementation may not support 3+ card surrender")
     print("You may need to modify the C++ code for this special rule")
 
@@ -98,12 +100,7 @@ def test_no_peek_impact():
     hand = [11]  # 11 - normally great double
     dealer_upcard = 10
 
-    result = engine.calculate_no_peek_ev(
-        hand=hand,
-        dealer_upcard=dealer_upcard,
-        deck_composition=deck_comp,
-        rules=rules
-    )
+    result = engine.calculate_no_peek_ev(hand, dealer_upcard, deck_comp, rules)
 
     print(f"Hand: 11 vs Dealer: 10 (NO PEEK)")
     print(f"Dealer BJ probability: {result['dealer_probabilities']['prob_blackjack']:.4f}")

@@ -29,14 +29,14 @@ def create_your_game_rules():
     rules = bjlogic_cpp.create_rules_config()
 
     # YOUR specific rules
-    rules['num_decks'] = 8
-    rules['dealer_hits_soft_17'] = False
-    rules['surrender_allowed'] = True
-    rules['blackjack_payout'] = 1.5
-    rules['double_after_split'] = 0
-    rules['resplitting_allowed'] = False
-    rules['max_split_hands'] = 2
-    rules['dealer_peek_on_ten'] = False
+    rules.num_decks = 8
+    rules.dealer_hits_soft_17 = False
+    rules.surrender_allowed = True
+    rules.blackjack_payout = 1.5
+    rules.double_after_split = 0
+    rules.resplitting_allowed = False
+    rules.max_split_hands = 2
+    rules.dealer_peek_on_ten = False
 
     return rules
 
@@ -60,11 +60,11 @@ def test_comp_panel_integration():
     dealer_upcard = 10
 
     result = bjlogic_cpp.calculate_ev_from_comp_panel(
-        hand=hand,
-        dealer_upcard=dealer_upcard,
-        comp_panel=comp_panel,
-        rules=rules,
-        counter_system="Hi-Lo"
+        hand,
+        dealer_upcard,
+        comp_panel,
+        rules,
+        "Hi-Lo"
     )
 
     if result['success']:
@@ -133,8 +133,8 @@ def test_special_scenarios():
     result = engine.calculate_true_count_ev(hand, dealer_upcard, 0.0, rules)
 
     print(f"    Hand: 8,8 vs Dealer: 10")
-    print(f"    Split EV: {result['split_ev']:.4f}")
-    print(f"    Surrender EV: {result['surrender_ev']:.4f}")
+    print(f"    Split EV: {result.split_ev:.4f}")
+    print(f"    Surrender EV: {result.surrender_ev:.4f}")
     print("    Note: No double after split makes splitting less attractive")
     print()
 
@@ -147,9 +147,9 @@ def test_counting_with_your_rules():
     cards = [10, 3, 6, 1, 5, 10, 10, 2, 4, 6]  # Some cards dealt
 
     result = bjlogic_cpp.process_cards_and_count(
-        cards=cards,
-        system="Hi-Lo",
-        num_decks=8  # YOUR game
+        cards,
+        "Hi-Lo",
+        8  # YOUR game
     )
 
     print(f"  Cards seen: {cards}")

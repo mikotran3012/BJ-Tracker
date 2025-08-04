@@ -26,7 +26,8 @@ class MockCompPanel:
 
 def create_your_game_rules():
     """Create rules matching YOUR specific game"""
-    rules = bjlogic_cpp.create_rules_config()
+    # Use the C++ RulesConfig object
+    rules = bjlogic_cpp.RulesConfig()
 
     # YOUR specific rules
     rules.num_decks = 8
@@ -60,11 +61,11 @@ def test_comp_panel_integration():
     dealer_upcard = 10
 
     result = bjlogic_cpp.calculate_ev_from_comp_panel(
-        hand,
-        dealer_upcard,
-        comp_panel,
-        rules,
-        "Hi-Lo"
+        hand=hand,
+        dealer_upcard=dealer_upcard,
+        comp_panel=comp_panel,
+        rules=rules,
+        counter_system="Hi-Lo"
     )
 
     if result['success']:
@@ -147,9 +148,9 @@ def test_counting_with_your_rules():
     cards = [10, 3, 6, 1, 5, 10, 10, 2, 4, 6]  # Some cards dealt
 
     result = bjlogic_cpp.process_cards_and_count(
-        cards,
-        "Hi-Lo",
-        8  # YOUR game
+        cards=cards,
+        system="Hi-Lo",
+        num_decks=8  # YOUR game
     )
 
     print(f"  Cards seen: {cards}")
@@ -162,6 +163,45 @@ def test_counting_with_your_rules():
     print(f"\n  Insurance decision:")
     print(f"    Should take insurance: {result['should_take_insurance']}")
     print(f"    Ten density: {result['ten_density']:.3f}")
+    print()
+
+
+def test_your_game_decisions():
+    """Test 5: Common decisions in YOUR specific game"""
+    print("Test 5: Testing common decisions with YOUR rules...")
+
+    engine = bjlogic_cpp.AdvancedEVEngine()
+    rules = create_your_game_rules()
+
+    scenarios = [
+        ([10, 6], 10, "16 vs 10 - Surrender available"),
+        ([1, 1], 10, "A,A vs 10 - Split Aces (1 card only)"),
+        ([11], 10, "11 vs 10 - Double (risky, no peek)"),
+        ([8, 8], 1, "8,8 vs A - Split or surrender?"),
+        ([9, 9], 7, "9,9 vs 7 - Stand (no DAS)"),
+    ]
+
+    for hand, dealer, desc in scenarios:
+        print(f"\n  {desc}")
+        print(f"  Hand: {hand} vs Dealer: {dealer}")
+
+        # Use dict wrapper for easier access
+        rules_dict = {
+            'num_decks': 8,
+            'dealer_hits_soft_17': False,
+            'surrender_allowed': True,
+            'blackjack_payout': 1.5,
+            'double_after_split': 0,
+            'resplitting_allowed': False,
+            'max_split_hands': 2,
+            'dealer_peek_on_ten': False
+        }
+
+        result = bjlogic_cpp.calculate_true_count_ev_dict(
+            engine, hand, dealer, 0.0, rules_dict
+        )
+
+        print(f"    Optimal: {result['optimal_action']} (EV: {result['optimal_ev']:.4f})")
     print()
 
 
@@ -184,5 +224,6 @@ if __name__ == "__main__":
     test_penetration_effect()
     test_special_scenarios()
     test_counting_with_your_rules()
+    test_your_game_decisions()
 
     print("Integration tests completed!")

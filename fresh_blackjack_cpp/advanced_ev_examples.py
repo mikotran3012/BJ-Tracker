@@ -91,7 +91,8 @@ def bankroll_management_optimization():
         print("Goal: Find optimal bet sizing and risk management")
 
         engine = bjlogic_cpp.AdvancedEVEngine()
-        rules = bjlogic_cpp.create_rules_config()
+        # Instantiate default rules configuration
+        rules = bjlogic_cpp.RulesConfig()
 
         # Test different base bet sizes
         bankroll = 10000
@@ -167,8 +168,8 @@ def composition_dependent_analysis():
         print("Question: How do remaining cards affect strategy decisions?")
 
         engine = bjlogic_cpp.AdvancedEVEngine()
-        rules = bjlogic_cpp.create_rules_config()
-        rules["num_decks"] = 1
+        rules = bjlogic_cpp.RulesConfig()
+        rules.num_decks = 1
 
         # Create different deck compositions
         base_deck = bjlogic_cpp.create_deck_state(1)
@@ -248,7 +249,7 @@ def tournament_strategy_analysis():
         print("Goal: Maximize probability of winning tournament")
 
         tournament_calc = bjlogic_cpp.TournamentEVCalculator()
-        rules = bjlogic_cpp.create_rules_config()
+        rules = bjlogic_cpp.RulesConfig()
 
         # Tournament scenarios
         tournament_situations = [
@@ -363,7 +364,7 @@ def progressive_betting_analysis():
         # Show proper advantage play comparison
         print(f"\n✅ Proper Advantage Play (Card Counting):")
         engine = bjlogic_cpp.AdvancedEVEngine()
-        rules = bjlogic_cpp.create_rules_config()
+        rules = bjlogic_cpp.RulesConfig()
 
         # Simulate advantage play session
         session_analysis = engine.analyze_session(
@@ -396,7 +397,7 @@ def monte_carlo_validation_study():
         print("Purpose: Ensure accuracy of sophisticated algorithms")
 
         engine = bjlogic_cpp.AdvancedEVEngine()
-        rules = bjlogic_cpp.create_rules_config()
+        rules = bjlogic_cpp.RulesConfig()
 
         # Test scenarios that are difficult to calculate
         validation_scenarios = [
@@ -514,8 +515,10 @@ def real_world_casino_comparison():
 
         for casino in casinos:
             # Create rules
-            rules = bjlogic_cpp.create_rules_config()
-            rules.update({k: v for k, v in casino.items() if k != 'name' and k != 'penetration'})
+            rules = bjlogic_cpp.RulesConfig()
+            for k, v in casino.items():
+                if k not in ("name", "penetration"):
+                    setattr(rules, k, v)
 
             # Calculate theoretical house edge
             house_edge = bjlogic_cpp.calculate_theoretical_house_edge(rules)

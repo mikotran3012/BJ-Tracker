@@ -7,15 +7,16 @@ import bjlogic_cpp
 def create_your_game_rules():
     """YOUR specific game rules"""
     rules = bjlogic_cpp.create_rules_config()
-    rules.num_decks = 8
-    rules.dealer_hits_soft_17 = False
-    rules.surrender_allowed = True
-    rules.blackjack_payout = 1.5
-    rules.double_after_split = 0
-    rules.resplitting_allowed = False
-    rules.max_split_hands = 2
-    rules.dealer_peek_on_ten = False
+    rules["num_decks"] = 8
+    rules["dealer_hits_soft_17"] = False
+    rules["surrender_allowed"] = True
+    rules["blackjack_payout"] = 1.5
+    rules["double_after_split"] = 0
+    rules["resplitting_allowed"] = False
+    rules["max_split_hands"] = 2
+    rules["dealer_peek_on_ten"] = False
     return rules
+
 
 
 def analyze_common_decisions():

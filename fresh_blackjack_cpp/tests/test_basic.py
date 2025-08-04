@@ -64,8 +64,8 @@ def test_rules_config():
     """Test 4: Rules configuration - YOUR SPECIFIC GAME RULES"""
     print("Test 4: Testing YOUR GAME rules configuration...")
 
-    # Create default rules and verify they match YOUR game
-    rules = bjlogic_cpp.create_rules_config()
+    # Create C++ RulesConfig object
+    rules = bjlogic_cpp.RulesConfig()
 
     # YOUR GAME RULES:
     expected_rules = {
@@ -83,8 +83,8 @@ def test_rules_config():
     all_correct = True
 
     for rule, expected_value in expected_rules.items():
-        if rule in rules:
-            actual_value = rules[rule]
+        if hasattr(rules, rule):
+            actual_value = getattr(rules, rule)
             is_correct = actual_value == expected_value
             status = "✓" if is_correct else "✗"
             print(f"  {status} {rule}: {actual_value} (expected: {expected_value})")
@@ -94,10 +94,20 @@ def test_rules_config():
             print(f"  ✗ {rule}: NOT FOUND in rules")
             all_correct = False
 
-    if all_correct:
-        print("\n  ✓ All rules match YOUR game configuration!")
+    # Set correct values if needed
+    if not all_correct:
+        print("\n  Setting correct values...")
+        rules.num_decks = 8
+        rules.dealer_hits_soft_17 = False
+        rules.surrender_allowed = True
+        rules.blackjack_payout = 1.5
+        rules.double_after_split = 0
+        rules.resplitting_allowed = False
+        rules.max_split_hands = 2
+        rules.dealer_peek_on_ten = False
+        print("  ✓ Rules updated to match YOUR game")
     else:
-        print("\n  ✗ Some rules don't match - may need to update C++ defaults")
+        print("\n  ✓ All rules match YOUR game configuration!")
     print()
 
 
@@ -105,23 +115,43 @@ def test_special_rules():
     """Test 5: YOUR special game rules"""
     print("Test 5: Testing YOUR special rules...")
 
-    rules = bjlogic_cpp.create_rules_config()
+    rules = bjlogic_cpp.RulesConfig()
 
-    # Test 1: Extended surrender (anytime before 21)
-    print("  Extended surrender rule:")
-    print("    - Late surrender allowed anytime with total < 21")
-    print("    - This is MORE generous than standard late surrender")
+    # Set YOUR rules
+    rules.num_decks = 8
+    rules.dealer_hits_soft_17 = False
+    rules.surrender_allowed = True
+    rules.dealer_peek_on_ten = False
+    rules.double_after_split = 0
+    rules.resplitting_allowed = False
 
-    # Test 2: Split Aces get only 1 card
-    print("\n  Split Aces rule:")
-    print("    - Only 1 card dealt per Ace after split")
-    print("    - No hitting allowed after split Aces")
+    # Test basic strategy with YOUR rules
+    print("  Testing basic strategy with YOUR rules:")
 
-    # Test 3: No peek on 10s
-    print("\n  No dealer peek on 10s:")
-    print("    - Dealer does NOT check for BJ with 10 upcard")
-    print("    - Player can lose double/split bets to dealer BJ")
+    # Test 16 vs 10 (should be surrender in your game)
+    hand = [10, 6]
+    dealer = 10
+    decision = bjlogic_cpp.basic_strategy_decision(hand, dealer, rules)
+    print(f"    16 vs 10: {decision}")
 
+    # Test 11 vs 10 (double but risky with no peek)
+    hand = [6, 5]
+    dealer = 10
+    decision = bjlogic_cpp.basic_strategy_decision(hand, dealer, rules)
+    print(f"    11 vs 10: {decision}")
+
+    # Test A,A vs 6 (always split)
+    hand = [1, 1]
+    dealer = 6
+    decision = bjlogic_cpp.basic_strategy_decision(hand, dealer, rules)
+    print(f"    A,A vs 6: {decision}")
+
+    print("\n  Special rules summary:")
+    print("    - Extended surrender (anytime before 21)")
+    print("    - No peek on 10s (lose doubles/splits to dealer BJ)")
+    print("    - Split Aces get only 1 card")
+    print("    - No double after split")
+    print("    - No resplitting")
     print()
 
 

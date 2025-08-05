@@ -2,7 +2,8 @@ import tkinter as tk
 import sys
 import os
 
-from nairn_integration import integrate_nairn_with_app
+from ev_calculator import EVCalculator
+from ev_display_panel import EVDisplayPanel
 from counting import CountManager
 from ui.count_panel import CountPanel
 
@@ -40,6 +41,7 @@ class BlackjackTrackerApp(tk.Tk):
         self.focus_manager = FocusManager(self.game_state)
         self.count_manager = CountManager(DEFAULT_DECKS)
         self.rules = BlackjackRules()
+        self.ev_calculator = None
 
         # Initialize UI-related attributes
         self.dealer_border = None
@@ -57,43 +59,6 @@ class BlackjackTrackerApp(tk.Tk):
 
         # Prompt for seat selection
         self.after(500, self.prompt_seat_selection)
-
-    def setup_nairn_integration(self):
-        """Set up the Nairn EV analysis integration."""
-        try:
-            # Find where you want to place the Nairn panel
-            # This could be in your right panel, below counting systems, etc.
-
-            # Option 1: Add to right panel (recommended)
-            if hasattr(self, 'right_frame'):
-                self.nairn_panel = integrate_nairn_with_app(self, self.right_frame)
-
-            # Option 2: Add to a specific frame
-            elif hasattr(self, 'analysis_frame'):
-                self.nairn_panel = integrate_nairn_with_app(self, self.analysis_frame)
-
-            # Option 3: Create new frame for Nairn analysis
-            else:
-                # Create a new frame in your main window
-                nairn_frame = tk.Frame(self.root, bg='#1a1a1a')
-                nairn_frame.pack(side='right', fill='y', padx=5)
-                self.nairn_panel = integrate_nairn_with_app(self, nairn_frame)
-
-        except Exception as e:
-            print(f"Failed to integrate Nairn EV analysis: {e}")
-            self.nairn_panel = None
-
-    # Optional: Add manual trigger for Nairn analysis
-    def trigger_nairn_analysis(self):
-        """Manually trigger Nairn analysis update."""
-        if hasattr(self, 'nairn_panel') and self.nairn_panel:
-            self.nairn_panel.update_analysis(force_update=True)
-
-    def _calculate_aces_left(self):
-        """Calculate aces remaining based on composition panel."""
-        total_aces = self.game_state.decks * 4
-        aces_dealt = self.game_state.comp_panel.comp.get('A', 0)
-        return total_aces - aces_dealt
 
     def _update_counting_display(self):
         """Update the counting panel display."""
@@ -350,6 +315,15 @@ class BlackjackTrackerApp(tk.Tk):
         self.count_panel = CountPanel(count_container, self.count_manager)
         self.count_panel.pack(fill='both', expand=True)
 
+        ev_container = tk.Frame(right_frame, bg=COLORS['bg_main'])
+        ev_container.pack(fill='both', expand=True, padx=2, pady=2)
+
+        # Initialize EV calculator now that comp_panel exists
+        if self.game_state.comp_panel:
+            self.ev_calculator = EVCalculator(self.game_state.comp_panel)
+            self.ev_display = EVDisplayPanel(ev_container, self.ev_calculator)
+            self.ev_display.pack(fill='both', expand=True)
+
         # === BOTTOM AREA: Future features ===
         future_height = int(700 * 0.20)
         future_features_frame = tk.Frame(self, bg=COLORS['bg_main'], relief=tk.GROOVE, bd=1, height=future_height)
@@ -371,6 +345,31 @@ class BlackjackTrackerApp(tk.Tk):
         print(f"  - SharedInputPanel: {self.game_state.shared_input_panel is not None}")
         print(f"  - DealerPanel: {self.game_state.dealer_panel is not None}")
         print(f"  - PlayerPanel: {self.game_state.player_panel is not None}")
+
+    def _update_ev_display(self):
+        """Update EV display based on current game state."""
+        if not self.ev_calculator or not hasattr(self, 'ev_display'):
+            return
+
+        # Only calculate during play phase when it's player's turn
+        if not self.game_state.is_play_phase():
+            return
+
+        # Get current player hand and dealer upcard
+        if self.game_state.player_panel and self.game_state.dealer_panel:
+            player_hands = self.game_state.player_panel.hands
+            current_hand_idx = self.game_state.player_panel.current_hand
+
+            if current_hand_idx < len(player_hands) and player_hands[current_hand_idx]:
+                player_hand = player_hands[current_hand_idx]
+
+                # Get dealer upcard
+                dealer_hand = self.game_state.dealer_panel.hands[0] if self.game_state.dealer_panel.hands else []
+                if dealer_hand:
+                    dealer_upcard = dealer_hand[0][0]  # First card rank
+
+                    # Update EV display
+                    self.ev_display.update_analysis(player_hand, dealer_upcard)
 
     # NEW BUTTON HANDLERS
     def handle_new_round(self):
@@ -431,6 +430,9 @@ class BlackjackTrackerApp(tk.Tk):
             self.after_idle(self._synchronize_panel_heights)
 
             print("NEW_ROUND: New round started successfully")
+
+            if hasattr(self, 'ev_display'):
+                self.ev_display.clear_display()
 
         except Exception as e:
             print(f"ERROR in handle_new_round: {e}")
@@ -677,6 +679,13 @@ class BlackjackTrackerApp(tk.Tk):
             import traceback
             traceback.print_exc()
 
+            if self.game_state.is_play_phase():
+                order = list(reversed(self.game_state._active_seats))
+                if self.game_state._focus_idx < len(order):
+                    seat = order[self.game_state._focus_idx]
+                    if seat == self.game_state.seat:
+                        self._update_ev_display()
+
     def _simple_set_focus(self):
         """Debug version of set focus."""
         print(f"\n" + "+" * 40)
@@ -874,6 +883,10 @@ class BlackjackTrackerApp(tk.Tk):
                 # Update counting systems (only for non-hole cards)
                 self.count_manager.add_card(rank)
                 self._update_counting_display()
+
+            if not is_hole and not self.game_state.is_play_phase():
+                self._update_ev_display()
+
             if not self.game_state.is_play_phase():
                 self.advance_flow()
 
@@ -968,6 +981,8 @@ class BlackjackTrackerApp(tk.Tk):
             if not is_hole:
                 self.count_manager.add_card(rank)
                 self._update_counting_display()
+
+            self._update_ev_display()
 
             if self.game_state.is_play_phase():
                 print("ON_PLAYER_CARD: In play phase")

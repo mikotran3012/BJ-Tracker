@@ -66,6 +66,12 @@ class BlackjackTrackerApp(tk.Tk):
         aces_left = self._calculate_aces_left()
         self.count_panel.update_panel(cards_left, aces_left, self.game_state.decks)
 
+    def _calculate_aces_left(self):
+        """Calculate how many aces are left in the shoe."""
+        total_aces = self.game_state.decks * 4
+        aces_dealt = self.game_state.comp_panel.comp.get('A', 0)
+        return total_aces - aces_dealt
+
     def _check_dealer_auto_stand(self):
         """Automatically stand dealer when total reaches 17 or more."""
         dp = self.game_state.dealer_panel
@@ -868,9 +874,31 @@ class BlackjackTrackerApp(tk.Tk):
         self.set_focus()
 
     def advance_play_focus(self):
-        """Advance play focus."""
+        """Advance play focus with proper auto-focus logic."""
         print("ADVANCE_PLAY_FOCUS: Called")
-        self.game_state.advance_play_focus()
+
+        # Check if we're in auto-focus mode
+        if not self.game_state._auto_focus:
+            print("ADVANCE_PLAY_FOCUS: Manual mode - not advancing")
+            return
+
+        # Get the play order (reversed active seats)
+        order = list(reversed(self.game_state._active_seats))
+        print(f"ADVANCE_PLAY_FOCUS: Play order: {order}")
+        print(f"ADVANCE_PLAY_FOCUS: Current focus_idx: {self.game_state._focus_idx}")
+
+        # Advance to next seat
+        self.game_state._focus_idx += 1
+
+        # Check if we've gone past all players (move to dealer)
+        if self.game_state._focus_idx >= len(order):
+            print("ADVANCE_PLAY_FOCUS: Moving to dealer")
+            # Focus is now on dealer
+        else:
+            next_seat = order[self.game_state._focus_idx]
+            print(f"ADVANCE_PLAY_FOCUS: Moving to seat: {next_seat}")
+
+        # Update focus
         self.set_focus()
 
     # CARD INPUT HANDLERS
@@ -993,8 +1021,8 @@ class BlackjackTrackerApp(tk.Tk):
                         print("ON_PLAYER_CARD: Hand finished, handling completion")
                         self._handle_player_completion()
                     else:
-                        print("ON_PLAYER_CARD: Hand continues, setting focus")
-                        self.set_focus()
+                        print("ON_PLAYER_CARD: Hand continues, advancing to next player")
+                        self.advance_play_focus()
             else:
                 print("ON_PLAYER_CARD: In dealing phase, advancing flow")
                 self.advance_flow()

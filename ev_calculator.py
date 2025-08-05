@@ -25,7 +25,11 @@ class EVCalculator:
 
         # Convert hand format if needed (e.g., ['K', '6'] -> [10, 6])
         numeric_hand = self._convert_to_numeric(player_hand)
-        numeric_upcard = self._convert_card(dealer_upcard)
+        # Handle dealer upcard - it might be just a string rank
+        if isinstance(dealer_upcard, tuple):
+            numeric_upcard = self._convert_card(dealer_upcard[0])  # Take rank part
+        else:
+            numeric_upcard = self._convert_card(dealer_upcard)
 
         # Use the direct comp_panel integration
         result = bjlogic_cpp.calculate_ev_from_comp_panel(
@@ -77,15 +81,24 @@ class EVCalculator:
         if isinstance(card, int):
             return card
 
-        card_str = str(card).upper()
+        # Handle tuple format (rank, suit) - extract just the rank
+        if isinstance(card, tuple):
+            card_str = str(card[0]).upper()  # Take only the rank part
+        else:
+            card_str = str(card).upper()
+
         if card_str in ['J', 'Q', 'K']:
             return 10
         elif card_str == 'A':
             return 1
-        elif card_str == 'T':
+        elif card_str in ['T', '10']:
             return 10
         else:
-            return int(card_str)
+            try:
+                return int(card_str)
+            except ValueError:
+                print(f"Warning: Could not convert card '{card}' to numeric value")
+                return 10  # Default fallback
 
     def _calculate_ev_differences(self, actions, optimal_ev):
         """Calculate EV loss for each non-optimal action"""

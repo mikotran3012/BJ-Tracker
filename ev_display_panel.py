@@ -78,7 +78,14 @@ class EVDisplayPanel(tk.Frame):
     def update_analysis(self, player_hand, dealer_upcard):
         """Update display with new hand analysis"""
         # Update hand display
-        hand_str = ', '.join(str(c) for c in player_hand)
+        # Format hand display properly
+        hand_display_parts = []
+        for rank, suit in player_hand:
+            display_rank = '10' if rank == 'T' else rank
+            suit_symbols = {'S': '♠', 'H': '♥', 'D': '♦', 'C': '♣'}
+            display_suit = suit_symbols.get(suit, suit)
+            hand_display_parts.append(f"{display_rank}{display_suit}")
+        hand_str = ', '.join(hand_display_parts)
         self.hand_label.config(text=f"Hand: {hand_str} vs Dealer: {dealer_upcard}")
 
         # Get analysis
@@ -121,3 +128,19 @@ class EVDisplayPanel(tk.Frame):
             return 'orange'
         else:
             return 'red'
+
+    def clear_display(self):
+        """Clear all displays"""
+        self.hand_label.config(text="Hand: --")
+
+        # Clear action EVs
+        for action in self.ev_labels:
+            self.ev_labels[action].config(text="--", foreground='black')
+
+        # Clear optimal action
+        self.optimal_action.config(text="--", foreground='black')
+        self.optimal_ev.config(text="EV: --")
+
+        # Clear dealer probabilities
+        for outcome in self.dealer_labels:
+            self.dealer_labels[outcome].config(text="--")

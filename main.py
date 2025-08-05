@@ -353,29 +353,61 @@ class BlackjackTrackerApp(tk.Tk):
         print(f"  - PlayerPanel: {self.game_state.player_panel is not None}")
 
     def _update_ev_display(self):
-        """Update EV display based on current game state."""
-        if not self.ev_calculator or not hasattr(self, 'ev_display'):
+        """Update EV display with enhanced debugging."""
+        print("UPDATE_EV: Called")
+
+        # Check prerequisites
+        if not hasattr(self, 'ev_calculator') or not self.ev_calculator:
+            print("UPDATE_EV: No EV calculator available")
             return
 
-        # Only calculate during play phase when it's player's turn
+        if not hasattr(self, 'ev_display') or not self.ev_display:
+            print("UPDATE_EV: No EV display available")
+            return
+
+        # Check game state
         if not self.game_state.is_play_phase():
+            print("UPDATE_EV: Not in play phase")
+            # Clear display when not in play phase
+            try:
+                self.ev_display.clear_display()
+            except:
+                pass
             return
 
-        # Get current player hand and dealer upcard
-        if self.game_state.player_panel and self.game_state.dealer_panel:
-            player_hands = self.game_state.player_panel.hands
-            current_hand_idx = self.game_state.player_panel.current_hand
+        # Check panels
+        if not (self.game_state.player_panel and self.game_state.dealer_panel):
+            print("UPDATE_EV: Missing player or dealer panel")
+            return
 
-            if current_hand_idx < len(player_hands) and player_hands[current_hand_idx]:
-                player_hand = player_hands[current_hand_idx]
+        # Check player hand
+        player_hands = self.game_state.player_panel.hands
+        current_hand_idx = self.game_state.player_panel.current_hand
 
-                # Get dealer upcard
-                dealer_hand = self.game_state.dealer_panel.hands[0] if self.game_state.dealer_panel.hands else []
-                if dealer_hand:
-                    dealer_upcard = dealer_hand[0][0]  # First card rank
+        if current_hand_idx >= len(player_hands) or not player_hands[current_hand_idx]:
+            print("UPDATE_EV: No valid player hand")
+            return
 
-                    # Update EV display
-                    self.ev_display.update_analysis(player_hand, dealer_upcard)
+        player_hand = player_hands[current_hand_idx]
+
+        # Check dealer upcard
+        dealer_hands = self.game_state.dealer_panel.hands
+        if not dealer_hands or not dealer_hands[0]:
+            print("UPDATE_EV: No dealer upcard")
+            return
+
+        dealer_upcard = dealer_hands[0][0][0]  # rank of first card
+
+        print(f"UPDATE_EV: Calculating EV for player {player_hand} vs dealer {dealer_upcard}")
+
+        # Update EV display
+        try:
+            self.ev_display.update_analysis(player_hand, dealer_upcard)
+            print("UPDATE_EV: Success!")
+        except Exception as e:
+            print(f"UPDATE_EV: Error: {e}")
+            import traceback
+            traceback.print_exc()
 
     # NEW BUTTON HANDLERS
     def handle_new_round(self):
@@ -461,29 +493,103 @@ class BlackjackTrackerApp(tk.Tk):
             traceback.print_exc()
 
     def handle_cal_function(self):
-        """NEW: Handle 'Cal' button - Placeholder for future calculator functionality."""
-        print("CAL: Calculator function called (placeholder)")
+        """Enhanced Cal button - Test EV calculator and show results."""
+        print("CAL: Calculator function called - Testing EV system")
 
-        # TODO: Implement calculator functionality
-        # This could be for:
-        # - Betting strategy calculations
-        # - Basic strategy lookup
-        # - Expected value calculations
-        # - Statistics analysis
-        # etc.
-
-        # For now, just show a placeholder message
         try:
-            import tkinter.messagebox as msgbox
-            msgbox.showinfo("Calculator",
-                            "Calculator functionality coming soon!\n\n"
-                            "This will include:\n"
-                            "• Betting strategy calculations\n"
-                            "• Basic strategy lookup\n"
-                            "• Expected value analysis\n"
-                            "• Statistics and probabilities")
+            # Test the EV calculator
+            if self.test_ev_calculator():
+                # If test passes, show a success message
+                import tkinter.messagebox as msgbox
+                msgbox.showinfo("EV Calculator Test",
+                                "✓ EV Calculator is working correctly!\n\n" +
+                                "The EV panel should show calculations when:\n" +
+                                "• You're in play phase\n" +
+                                "• Player has cards\n" +
+                                "• Dealer has an upcard\n\n" +
+                                "Try dealing some cards and entering play phase.")
+            else:
+                # If test fails, show error message
+                import tkinter.messagebox as msgbox
+                msgbox.showerror("EV Calculator Error",
+                                 "✗ EV Calculator is not working properly.\n\n" +
+                                 "Check the console for error details.\n" +
+                                 "The EV calculator may not be properly initialized.")
+
         except Exception as e:
             print(f"ERROR in handle_cal_function: {e}")
+            import traceback
+            traceback.print_exc()
+
+            import tkinter.messagebox as msgbox
+            msgbox.showerror("Calculator Error", f"Error testing calculator: {e}")
+
+    def test_ev_calculator(self):
+        """Test method to verify EV calculator is working."""
+        print("=" * 50)
+        print("TESTING EV CALCULATOR")
+        print("=" * 50)
+
+        # Check if EV calculator exists
+        if not hasattr(self, 'ev_calculator') or not self.ev_calculator:
+            print("ERROR: EV calculator not initialized!")
+            return False
+
+        if not hasattr(self, 'ev_display') or not self.ev_display:
+            print("ERROR: EV display not initialized!")
+            return False
+
+        print("✓ EV calculator and display found")
+
+        # Test with sample data
+        test_player_hand = [('10', 'H'), ('6', 'S')]  # Player has 16
+        test_dealer_upcard = '10'  # Dealer shows 10
+
+        print(f"Testing with player hand: {test_player_hand}")
+        print(f"Testing with dealer upcard: {test_dealer_upcard}")
+
+        try:
+            # Test the EV calculation
+            self.ev_display.update_analysis(test_player_hand, test_dealer_upcard)
+            print("✓ EV calculation completed successfully!")
+            return True
+        except Exception as e:
+            print(f"✗ EV calculation failed: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
+    def manual_ev_update(self):
+        """Manually trigger EV update for testing."""
+        print("MANUAL_EV: Triggering manual EV update")
+
+        # Force an EV update regardless of game state
+        if not (self.game_state.player_panel and self.game_state.dealer_panel):
+            print("MANUAL_EV: Missing panels")
+            return
+
+        player_hands = self.game_state.player_panel.hands
+        if not player_hands or not player_hands[0]:
+            print("MANUAL_EV: No player cards")
+            return
+
+        dealer_hands = self.game_state.dealer_panel.hands
+        if not dealer_hands or not dealer_hands[0]:
+            print("MANUAL_EV: No dealer cards")
+            return
+
+        player_hand = player_hands[0]
+        dealer_upcard = dealer_hands[0][0][0]
+
+        print(f"MANUAL_EV: Player: {player_hand}, Dealer: {dealer_upcard}")
+
+        try:
+            self.ev_display.update_analysis(player_hand, dealer_upcard)
+            print("MANUAL_EV: Update successful")
+        except Exception as e:
+            print(f"MANUAL_EV: Error: {e}")
+            import traceback
+            traceback.print_exc()
 
     def _synchronize_panel_heights(self):
         """Ensure dealer and player panels maintain synchronized heights."""
@@ -525,6 +631,11 @@ class BlackjackTrackerApp(tk.Tk):
             print(f"Current focus: {self.game_state._focus_idx}")
             print(f"Play phase: {self.game_state.is_play_phase()}")
             print(f"Auto focus: {self.game_state._auto_focus}")
+
+            if event.char.upper() == 'E':  # Press 'E' to test EV
+                print("EV TEST: Manual EV update triggered")
+                self.manual_ev_update()
+                return "break"
 
             # HOTKEY: Handle 'U' key for global undo
             if event.char.upper() == 'U':

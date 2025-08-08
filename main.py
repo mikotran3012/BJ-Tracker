@@ -268,6 +268,13 @@ class BlackjackTrackerApp(tk.Tk):
         self.game_state.dealer_panel.pack(fill='both', expand=True, padx=3, pady=3)
         print("SETUP_UI: DealerPanel created and packed")
 
+        print("SETUP_UI: DealerPanel created and packed")
+
+        # Connect comp_panel to dealer panel for probability calculations
+        if hasattr(self.game_state.dealer_panel, 'comp_panel'):
+            self.game_state.dealer_panel.comp_panel = self.game_state.comp_panel
+            print("SETUP_UI: Connected comp_panel to dealer panel")
+
         # === PLAYER PANEL - CREATE ONLY ONCE ===
         print("SETUP_UI: Creating player container...")
         player_container = tk.Frame(game_panels_container, bg=COLORS['bg_main'])
@@ -495,6 +502,18 @@ class BlackjackTrackerApp(tk.Tk):
     def handle_cal_function(self):
         """Enhanced Cal button - Test EV calculator and show results."""
         print("CAL: Calculator function called - Testing EV system")
+
+        # TEST DEALER PROBABILITIES
+        if self.game_state.dealer_panel:
+            print("CAL: Testing dealer probability update...")
+            if hasattr(self.game_state.dealer_panel, 'update_dealer_probabilities'):
+                self.game_state.dealer_panel.update_dealer_probabilities()
+                print("CAL: Dealer probabilities update called")
+
+            # Force a test with dealer having a 10
+            if hasattr(self.game_state.dealer_panel, 'prob_panel') and self.game_state.dealer_panel.prob_panel:
+                print("CAL: Force testing with dealer 10...")
+                self.game_state.dealer_panel.prob_panel.update_probabilities('T', self.game_state.comp_panel)
 
         try:
             # Test the EV calculator
@@ -734,9 +753,13 @@ class BlackjackTrackerApp(tk.Tk):
         new_decks = self.game_state.comp_panel.decks
         self.game_state.set_decks(new_decks)
 
-        # ADD THIS: Update counting systems
+        # Update counting systems
         self.count_manager.set_decks(new_decks)
         self._update_counting_display()
+
+        # Update dealer probabilities if upcard exists
+        if self.game_state.dealer_panel:
+            self.game_state.dealer_panel.update_dealer_probabilities()
 
     def reset_flow(self):
         """Reset game with detailed debugging."""
@@ -1017,17 +1040,36 @@ class BlackjackTrackerApp(tk.Tk):
         """Handle dealer card with panel height synchronization."""
         try:
             print(f"ON_DEALER_CARD: {rank}{suit} (hole={is_hole})")
+
+            # ADD DEBUG TO SEE WHY advance_flow() ISN'T CALLED
+            print(f"DEBUG: is_play_phase()={self.game_state.is_play_phase()}")
+            print(f"DEBUG: _play_phase value={getattr(self.game_state, '_play_phase', 'MISSING')}")
+
             if not is_hole:
                 self.game_state.log_card(rank)
                 # Update counting systems (only for non-hole cards)
                 self.count_manager.add_card(rank)
                 self._update_counting_display()
 
+                # FIX: Wrap probability update in try-catch to prevent breaking auto-focus
+                print("ON_DEALER_CARD: Updating dealer probabilities...")
+                try:
+                    if hasattr(self.game_state.dealer_panel, 'update_dealer_probabilities'):
+                        self.game_state.dealer_panel.update_dealer_probabilities()
+                        print("ON_DEALER_CARD: Dealer probabilities updated")
+                except Exception as prob_error:
+                    print(f"ON_DEALER_CARD: Probability update failed: {prob_error}")
+                    # Don't let this break the auto-focus flow
+
             if not is_hole and not self.game_state.is_play_phase():
                 self._update_ev_display()
 
+                # THE CRITICAL PART - This should now execute
             if not self.game_state.is_play_phase():
+                print("ON_DEALER_CARD: Calling advance_flow()")
                 self.advance_flow()
+            else:
+                print("ON_DEALER_CARD: NOT calling advance_flow() - in play phase")
 
             # SYNCHRONIZE PANEL HEIGHTS AFTER CARD INPUT
             self.after_idle(self._synchronize_panel_heights)
@@ -1154,6 +1196,10 @@ class BlackjackTrackerApp(tk.Tk):
             print(f"ON_DEALER_UNDO: rank={rank}, is_hole={is_hole}")
             if rank and not is_hole:
                 self.game_state.undo_card(rank)
+
+                # Update dealer probabilities after undo
+                if hasattr(self.game_state.dealer_panel, 'update_dealer_probabilities'):
+                    self.game_state.dealer_panel.update_dealer_probabilities()
 
             # SYNCHRONIZE PANEL HEIGHTS AFTER UNDO
             self.after_idle(self._synchronize_panel_heights)

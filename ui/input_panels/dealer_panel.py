@@ -37,7 +37,65 @@ class DealerPanel(BaseCardPanel):
         self._history = []
 
         self._build_dealer_ui()
-        print("DEALER_PANEL: DealerPanel construction complete")
+
+        # Add probability panel on the right side
+        try:
+            from dealer_prob_panel import DealerProbPanel
+
+            # Create a container for the probability panel (right-aligned)
+            # Use a hardcoded color that matches your theme
+            prob_container = tk.Frame(self, bg='#2b2b2b')  # Dark gray background
+            prob_container.pack(side='right', fill='y', padx=(5, 2))
+
+            self.prob_panel = DealerProbPanel(prob_container, bg_color='#2b2b2b')
+            self.prob_panel.pack(fill='both', expand=True)
+
+            # Store reference to comp_panel (will be set by main app)
+            self.comp_panel = None
+
+            print("DEALER_PANEL: Probability panel added successfully")
+        except Exception as e:
+            print(f"DEALER_PANEL: Could not add probability panel: {e}")
+            import traceback
+            traceback.print_exc()  # This will show the full error
+            self.prob_panel = None
+            self.comp_panel = None
+
+            print("DEALER_PANEL: Probability panel added successfully")
+
+        except Exception as e:
+            print(f"DEALER_PANEL: Could not add probability panel: {e}")
+            self.prob_panel = None
+            self.comp_panel = None
+
+        # Store reference to comp_panel (will be set by main app)
+        self.comp_panel = None
+
+    def update_dealer_probabilities(self):
+        """Update the probability panel based on current upcard."""
+        print(f"UPDATE_DEALER_PROBS: Called")
+        print(f"  prob_panel exists: {self.prob_panel is not None}")
+        print(f"  comp_panel exists: {self.comp_panel is not None}")
+
+        if not self.prob_panel:
+            print("UPDATE_DEALER_PROBS: No prob_panel - exiting")
+            return
+
+        if not self.comp_panel:
+            print("UPDATE_DEALER_PROBS: No comp_panel - exiting")
+            return
+
+        # Get the dealer's upcard
+        print(f"  hands: {self.hands}")
+        if self.hands and self.hands[0]:
+            upcard_rank = self.hands[0][0][0]  # First card's rank
+            print(f"UPDATE_DEALER_PROBS: Upcard is {upcard_rank}")
+            print(f"UPDATE_DEALER_PROBS: Calling prob_panel.update_probabilities...")
+            self.prob_panel.update_probabilities(upcard_rank, self.comp_panel)
+            print(f"UPDATE_DEALER_PROBS: Complete")
+        else:
+            print("UPDATE_DEALER_PROBS: No hands/upcard yet - clearing display")
+            self.prob_panel.clear_display()
 
     def _build_dealer_ui(self):
         """Build dealer-specific UI with UPDATED stacked card display."""

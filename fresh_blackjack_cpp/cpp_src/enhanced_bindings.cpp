@@ -2,7 +2,7 @@
 /*
  * Phase 2.3: Enhanced PyBind11 bindings with card counting
  * Professional-grade strategy analysis and card counting
- * FIXED: Removed duplicate AdvancedEVEngine binding
+ * FIXED: Added calculate_exact_dealer_probabilities function
  */
 
 #include <pybind11/pybind11.h>
@@ -11,6 +11,7 @@
 #include "bjlogic_core.hpp"
 #include "card_counting.hpp"
 #include "advanced_ev_engine.hpp"
+#include "recursive_dealer_engine.hpp"
 
 namespace py = pybind11;
 using namespace bjlogic;
@@ -49,7 +50,7 @@ py::dict deck_state_to_dict(const DeckState& deck) {
 static RulesConfig dict_to_rules_config(const py::dict& rules_dict) {
     RulesConfig rules;
 
-    // Ã¢Å“â€¦ FIXED: Set defaults to YOUR game rules first
+    // Set defaults to YOUR game rules first
     rules.num_decks = 8;                         // Your rule: 8 decks
     rules.dealer_hits_soft_17 = false;           // Your rule: Stands on soft 17
     rules.double_after_split = 0;                // Your rule: Not allowed
@@ -57,9 +58,9 @@ static RulesConfig dict_to_rules_config(const py::dict& rules_dict) {
     rules.max_split_hands = 2;                   // Your rule: Max 2 hands
     rules.blackjack_payout = 1.5;               // Your rule: 3:2 payout
     rules.surrender_allowed = true;              // Your rule: Late surrender
-    rules.dealer_peek_on_ten = false;                   // Your rule: NO peek on 10-value cards              // Your rule: Late surrender
+    rules.dealer_peek_on_ten = false;           // Your rule: NO peek on 10-value cards
 
-    // Allow overrides from Python dict (keep existing override logic)
+    // Allow overrides from Python dict
     if (rules_dict.contains("num_decks")) {
         rules.num_decks = py::cast<int>(rules_dict["num_decks"]);
     }
@@ -82,7 +83,7 @@ static RulesConfig dict_to_rules_config(const py::dict& rules_dict) {
         rules.surrender_allowed = py::cast<bool>(rules_dict["surrender_allowed"]);
     }
     if (rules_dict.contains("dealer_peek_on_ten")) {
-    rules.dealer_peek_on_ten = py::cast<bool>(rules_dict["dealer_peek_on_ten"]);
+        rules.dealer_peek_on_ten = py::cast<bool>(rules_dict["dealer_peek_on_ten"]);
     }
 
     return rules;
@@ -171,17 +172,16 @@ py::dict py_create_deck_state(int num_decks = 6) {
 }
 
 // Create default rules
-// Returned as a C++ object so Python callers can configure attributes
 RulesConfig py_create_rules_config() {
     return RulesConfig();
 }
 
 // Test function for Phase 2.2
 std::string test_strategy_extension() {
-    return "Ã°Å¸Å½Â¯ Complete Basic Strategy Tables successfully implemented!";
+    return "Complete Basic Strategy Tables successfully implemented!";
 }
 
-// Converter: Your comp_panel format Ã¢â€ â€™ C++ DeckState
+// Converter: Your comp_panel format → C++ DeckState
 DeckState python_composition_to_deck_state(const py::dict& composition, int num_decks) {
     DeckState deck(num_decks);
 
@@ -193,12 +193,15 @@ DeckState python_composition_to_deck_state(const py::dict& composition, int num_
 
         deck.total_cards = 0;
 
+        // Clear existing cards_remaining
+        deck.cards_remaining.clear();
+
         // Your ranks: ['A', '2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K']
         std::vector<std::string> your_ranks = {"A", "2", "3", "4", "5", "6", "7", "8", "9", "T", "J", "Q", "K"};
 
         for (const auto& rank_str : your_ranks) {
-    if (comp_dict.contains(rank_str.c_str())) {
-        int cards_dealt = py::cast<int>(comp_dict[rank_str.c_str()]);
+            if (comp_dict.contains(rank_str.c_str())) {
+                int cards_dealt = py::cast<int>(comp_dict[rank_str.c_str()]);
                 int cards_remaining = decks * 4 - cards_dealt;
 
                 // Convert your ranks to C++ internal format
@@ -210,8 +213,9 @@ DeckState python_composition_to_deck_state(const py::dict& composition, int num_
                 else if (rank_str == "K") rank_key = 13;
                 else rank_key = std::stoi(rank_str); // 2-9
 
-                deck.cards_remaining[rank_key] = std::max(0, cards_remaining);
-                deck.total_cards += deck.cards_remaining[rank_key];
+                // Use insert or emplace instead of operator[]
+                deck.cards_remaining.insert(std::make_pair(rank_key, std::max(0, cards_remaining)));
+                deck.total_cards += std::max(0, cards_remaining);
             }
         }
     }
@@ -299,19 +303,15 @@ py::dict py_calculate_ev_from_comp_panel(const std::vector<int>& hand,
     }
 }
 
-// =============================================================================
-// PHASE 2.3: CARD COUNTING FUNCTIONS
-// =============================================================================
-
 // Test function for Phase 2.3
 std::string test_counting_extension() {
-    return "Ã°Å¸Å½Â¯ Advanced Card Counting & Probability Engine successfully implemented!";
+    return "Advanced Card Counting & Probability Engine successfully implemented!";
 }
 
 // Simple card counter wrapper
 py::dict py_create_card_counter(const std::string& system_name = "Hi-Lo", int num_decks = 6) {
     try {
-        // Convert string to enum - ALL 8 SYSTEMS
+        // Convert string to enum
         CountingSystem system = CountingSystem::HI_LO;
         if (system_name == "Hi-Opt I") system = CountingSystem::HI_OPT_I;
         else if (system_name == "Hi-Opt II") system = CountingSystem::HI_OPT_II;
@@ -348,7 +348,7 @@ py::dict py_process_cards_and_count(const std::vector<int>& cards,
                                    const std::string& system_name = "Hi-Lo",
                                    int num_decks = 6) {
     try {
-        // Convert string to enum - ALL 8 SYSTEMS
+        // Convert string to enum
         CountingSystem system = CountingSystem::HI_LO;
         if (system_name == "Hi-Opt I") system = CountingSystem::HI_OPT_I;
         else if (system_name == "Hi-Opt II") system = CountingSystem::HI_OPT_II;
@@ -410,243 +410,93 @@ PYBIND11_MODULE(bjlogic_cpp, m) {
     m.doc() = "Advanced Blackjack C++ Logic - Phase 2.3 Complete Card Counting";
 
     // =================================================================
-// RECURSIVE EV METHOD BINDINGS
-// =================================================================
+    // DEALER PROBABILITY FUNCTION - ADD THIS FIRST
+    // =================================================================
 
-    // Add these inside your existing PYBIND11_MODULE(bjlogic_cpp, m) { ... }
-
-    m.def("calculate_ev_from_comp_panel", &py_calculate_ev_from_comp_panel,
-      "Calculate EV directly from comp_panel instance",
-      py::arg("hand"), py::arg("dealer_upcard"), py::arg("comp_panel"),
-      py::arg("rules"), py::arg("counter_system") = "Hi-Lo");
-
-    // Python-friendly wrapper for recursive EV calculation
-    m.def("calculate_recursive_ev_dict", [](bjlogic::AdvancedEVEngine& engine,
-                                           const std::vector<int>& hand,
-                                           int dealer_upcard,
-                                           const py::dict& rules_dict) {
+    m.def("calculate_exact_dealer_probabilities",
+    [](int dealer_upcard,
+       const py::dict& deck_composition,
+       const py::dict& rules_dict) -> py::dict {
+    try {
+        // Convert rules
         RulesConfig rules = dict_to_rules_config(rules_dict);
 
-        // Create a simple counter for the calculation
-        bjlogic::CardCounter counter(bjlogic::CountingSystem::HI_LO, rules.num_decks);
+        // Create recursive dealer engine
+        bjlogic::RecursiveDealerEngine dealer_engine;
 
-        auto result = engine.calculate_detailed_ev_with_recursion(hand, dealer_upcard, counter, rules);
+        // Create deck composition
+        bjlogic::DeckComposition deck_comp(rules.num_decks);
 
-        py::dict py_result;
-        py_result["stand_ev"] = result.stand_ev;
-        py_result["hit_ev"] = result.hit_ev;
-        py_result["double_ev"] = result.double_ev;
-        py_result["split_ev"] = result.split_ev;
-        py_result["surrender_ev"] = result.surrender_ev;
-        py_result["optimal_ev"] = result.optimal_ev;
-        py_result["optimal_action"] = BJLogicCore::action_to_string(result.optimal_action);
-        py_result["true_count_adjustment"] = result.true_count_adjustment;
-        py_result["variance"] = result.variance;
-        py_result["advantage_over_basic"] = result.advantage_over_basic;
+        // Update deck composition from Python dict
+        if (deck_composition.contains("cards_remaining")) {
+            py::dict cards_rem = py::cast<py::dict>(deck_composition["cards_remaining"]);
 
-        return py_result;
-    }, "Calculate EV using recursive methods", py::arg("engine"), py::arg("hand"), py::arg("dealer_upcard"), py::arg("rules"));
+            // Reset the deck composition based on cards remaining
+            deck_comp.total_cards = 0;
+            for (int i = 0; i < 13; ++i) {
+                deck_comp.cards[i] = 0;
+            }
 
-    // Individual recursive method bindings
-    m.def("calculate_stand_ev_recursive_dict", [](bjlogic::AdvancedEVEngine& engine,
-                                                 const std::vector<int>& hand,
-                                                 int dealer_upcard,
-                                                 const py::dict& rules_dict) {
-        RulesConfig rules = dict_to_rules_config(rules_dict);
-        DeckState deck(rules.num_decks);
-
-        double result = engine.calculate_stand_ev_recursive(hand, dealer_upcard, deck, rules);
-
-        py::dict py_result;
-        py_result["stand_ev"] = result;
-        py_result["method"] = "recursive";
-
-        return py_result;
-    }, "Calculate stand EV using recursive method");
-
-    m.def("calculate_hit_ev_recursive_dict", [](bjlogic::AdvancedEVEngine& engine,
-                                               const std::vector<int>& hand,
-                                               int dealer_upcard,
-                                               const py::dict& rules_dict,
-                                               int depth = 0) {
-        RulesConfig rules = dict_to_rules_config(rules_dict);
-        DeckState deck(rules.num_decks);
-
-        double result = engine.calculate_hit_ev_recursive(hand, dealer_upcard, deck, rules, depth);
-
-        py::dict py_result;
-        py_result["hit_ev"] = result;
-        py_result["depth"] = depth;
-        py_result["method"] = "recursive";
-
-        return py_result;
-    }, "Calculate hit EV using recursive method",
-       py::arg("engine"), py::arg("hand"), py::arg("dealer_upcard"), py::arg("rules"), py::arg("depth") = 0);
-
-    m.def("calculate_double_ev_recursive_dict", [](bjlogic::AdvancedEVEngine& engine,
-                                                  const std::vector<int>& hand,
-                                                  int dealer_upcard,
-                                                  const py::dict& rules_dict) {
-        RulesConfig rules = dict_to_rules_config(rules_dict);
-        DeckState deck(rules.num_decks);
-
-        double result = engine.calculate_double_ev_recursive(hand, dealer_upcard, deck, rules);
-
-        py::dict py_result;
-        py_result["double_ev"] = result;
-        py_result["method"] = "recursive";
-
-        return py_result;
-    }, "Calculate double EV using recursive method");
-
-    m.def("calculate_split_ev_recursive_dict", [](bjlogic::AdvancedEVEngine& engine,
-                                                 const std::vector<int>& hand,
-                                                 int dealer_upcard,
-                                                 const py::dict& rules_dict,
-                                                 int splits_remaining = 3) {
-        RulesConfig rules = dict_to_rules_config(rules_dict);
-        DeckState deck(rules.num_decks);
-
-        double result = engine.calculate_split_ev_advanced(hand, dealer_upcard, deck, rules, splits_remaining);
-
-        py::dict py_result;
-        py_result["split_ev"] = result;
-        py_result["splits_remaining"] = splits_remaining;
-        py_result["method"] = "recursive";
-
-        return py_result;
-    }, "Calculate split EV using recursive method",
-       py::arg("engine"), py::arg("hand"), py::arg("dealer_upcard"), py::arg("rules"), py::arg("splits_remaining") = 3);
-
-    // Comprehensive recursive analysis function
-    m.def("analyze_hand_recursive", [](const std::vector<int>& hand,
-                                      int dealer_upcard,
-                                      const py::dict& rules_dict,
-                                      const std::string& counter_system = "Hi-Lo",
-                                      int running_count = 0,
-                                      int penetration = 50) {
-
-        bjlogic::AdvancedEVEngine engine(8, 0.001); // Good precision for testing
-        RulesConfig rules = dict_to_rules_config(rules_dict);
-
-        // Create a counter with specified state
-        bjlogic::CountingSystem system = bjlogic::CountingSystem::HI_LO;
-        if (counter_system == "Hi-Opt I") system = bjlogic::CountingSystem::HI_OPT_I;
-        else if (counter_system == "Hi-Opt II") system = bjlogic::CountingSystem::HI_OPT_II;
-        else if (counter_system == "Omega II") system = bjlogic::CountingSystem::OMEGA_II;
-        else if (counter_system == "Zen Count") system = bjlogic::CountingSystem::ZEN_COUNT;
-        else if (counter_system == "Uston APC") system = bjlogic::CountingSystem::USTON_APC;
-
-        bjlogic::CardCounter counter(system, rules.num_decks);
-
-        // Simulate the count state (simplified)
-        for (int i = 0; i < running_count; ++i) {
-            counter.process_card(5); // Process neutral cards to adjust count
+            // Set cards remaining for each rank
+            for (int rank = 1; rank <= 10; ++rank) {
+                // FIX: Use py::int_ to wrap the integer key
+                py::int_ py_rank(rank);
+                if (cards_rem.contains(py_rank)) {
+                    int count = py::cast<int>(cards_rem[py_rank]);
+                    if (rank == 1) {
+                        deck_comp.cards[0] = count;  // Ace
+                    } else if (rank >= 2 && rank <= 9) {
+                        deck_comp.cards[rank - 1] = count;
+                    } else if (rank == 10) {
+                        // Distribute 10s evenly across 10,J,Q,K
+                        int per_slot = count / 4;
+                        int remainder = count % 4;
+                        for (int i = 9; i < 13; ++i) {
+                            deck_comp.cards[i] = per_slot + (i - 9 < remainder ? 1 : 0);
+                        }
+                    }
+                    deck_comp.total_cards += count;
+                }
+            }
         }
 
-        // Calculate using recursive methods
-        auto recursive_result = engine.calculate_detailed_ev_with_recursion(hand, dealer_upcard, counter, rules);
+        // Calculate exact probabilities
+        auto result = dealer_engine.calculate_exact_probabilities(dealer_upcard, deck_comp, rules);
 
-        // Also calculate basic strategy for comparison
-        auto basic_result = engine.calculate_true_count_ev(hand, dealer_upcard, 0.0, rules);
+        // Convert to Python dict
+        py::dict py_result;
+        py_result["prob_17"] = result.prob_17;
+        py_result["prob_18"] = result.prob_18;
+        py_result["prob_19"] = result.prob_19;
+        py_result["prob_20"] = result.prob_20;
+        py_result["prob_21"] = result.prob_21;
+        py_result["prob_bust"] = result.prob_bust;
+        py_result["prob_blackjack"] = result.prob_blackjack;
+        py_result["success"] = true;
+        py_result["recursive_calls"] = result.recursive_calls;
+        py_result["from_cache"] = result.from_cache;
 
-        py::dict result;
+        // Verify total probability
+        double total = result.get_total_probability();
+        py_result["total_probability"] = total;
 
-        // Recursive results
-        result["recursive_analysis"] = py::dict();
-        result["recursive_analysis"]["stand_ev"] = recursive_result.stand_ev;
-        result["recursive_analysis"]["hit_ev"] = recursive_result.hit_ev;
-        result["recursive_analysis"]["double_ev"] = recursive_result.double_ev;
-        result["recursive_analysis"]["split_ev"] = recursive_result.split_ev;
-        result["recursive_analysis"]["surrender_ev"] = recursive_result.surrender_ev;
-        result["recursive_analysis"]["optimal_action"] = BJLogicCore::action_to_string(recursive_result.optimal_action);
-        result["recursive_analysis"]["optimal_ev"] = recursive_result.optimal_ev;
-        result["recursive_analysis"]["variance"] = recursive_result.variance;
+        return py_result;
 
-        // Basic strategy results
-        result["basic_strategy"] = py::dict();
-        result["basic_strategy"]["optimal_action"] = BJLogicCore::action_to_string(basic_result.optimal_action);
-        result["basic_strategy"]["optimal_ev"] = basic_result.optimal_ev;
-
-        // Comparison
-        result["ev_improvement"] = recursive_result.optimal_ev - basic_result.optimal_ev;
-        result["counter_system"] = counter_system;
-        result["true_count"] = counter.get_true_count();
-        result["advantage"] = counter.get_advantage();
-
-        // Performance info
-        result["cache_size"] = engine.get_cache_size();
-
-        return result;
-
-    }, "Comprehensive recursive hand analysis",
-       py::arg("hand"), py::arg("dealer_upcard"), py::arg("rules"),
-       py::arg("counter_system") = "Hi-Lo", py::arg("running_count") = 0, py::arg("penetration") = 50);
-
-    // Test function for recursive methods
-    m.def("test_recursive_methods", []() {
-        try {
-            bjlogic::AdvancedEVEngine engine(6, 0.01); // Fast settings for testing
-            RulesConfig rules;
-            DeckState deck(6);
-
-            // Test a simple hand
-            std::vector<int> test_hand = {10, 6};
-            int dealer_upcard = 10;
-
-            // Test each recursive method
-            double stand_ev = engine.calculate_stand_ev_recursive(test_hand, dealer_upcard, deck, rules);
-            double hit_ev = engine.calculate_hit_ev_recursive(test_hand, dealer_upcard, deck, rules, 0);
-            double double_ev = engine.calculate_double_ev_recursive(test_hand, dealer_upcard, deck, rules);
-
-            py::dict result;
-            result["success"] = true;
-            result["stand_ev"] = stand_ev;
-            result["hit_ev"] = hit_ev;
-            result["double_ev"] = double_ev;
-            result["test_hand"] = test_hand;
-            result["dealer_upcard"] = dealer_upcard;
-            result["message"] = "All recursive methods working correctly!";
-
-            return result;
-
-        } catch (const std::exception& e) {
-            py::dict result;
-            result["success"] = false;
-            result["error"] = e.what();
-            result["message"] = "Recursive methods test failed";
-            return result;
-        }
-    }, "Test that recursive EV methods are working");
-
-    // Performance benchmark function
-    m.def("benchmark_recursive_methods", [](int num_tests = 100) {
-        bjlogic::AdvancedEVEngine engine(6, 0.01);
-        RulesConfig rules;
-
-        auto start = std::chrono::high_resolution_clock::now();
-
-        // Run multiple calculations
-        for (int i = 0; i < num_tests; ++i) {
-            bjlogic::CardCounter counter(bjlogic::CountingSystem::HI_LO, 6);
-            std::vector<int> hand = {10, 6};
-            int dealer = 10;
-
-            engine.calculate_detailed_ev_with_recursion(hand, dealer, counter, rules);
-        }
-
-        auto end = std::chrono::high_resolution_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-
-        py::dict result;
-        result["num_tests"] = num_tests;
-        result["total_time_microseconds"] = duration.count();
-        result["average_time_microseconds"] = duration.count() / num_tests;
-        result["calculations_per_second"] = (num_tests * 1000000.0) / duration.count();
-        result["cache_size"] = engine.get_cache_size();
-
-        return result;
-    }, "Benchmark recursive EV calculation performance", py::arg("num_tests") = 100);
+    } catch (const std::exception& e) {
+        py::dict error_result;
+        error_result["error"] = e.what();
+        error_result["success"] = false;
+        error_result["prob_17"] = 0.0;
+        error_result["prob_18"] = 0.0;
+        error_result["prob_19"] = 0.0;
+        error_result["prob_20"] = 0.0;
+        error_result["prob_21"] = 0.0;
+        error_result["prob_bust"] = 0.0;
+        error_result["prob_blackjack"] = 0.0;
+        return error_result;
+    }
+}, "Calculate exact dealer probabilities using recursive engine",
+   py::arg("dealer_upcard"), py::arg("deck_composition"), py::arg("rules"));
 
     // =================================================================
     // ENUMS
@@ -734,22 +584,16 @@ PYBIND11_MODULE(bjlogic_cpp, m) {
     m.def("get_counting_systems", &py_get_counting_systems,
           "Get list of available counting systems");
 
+    m.def("calculate_ev_from_comp_panel", &py_calculate_ev_from_comp_panel,
+          "Calculate EV directly from comp_panel instance",
+          py::arg("hand"), py::arg("dealer_upcard"), py::arg("comp_panel"),
+          py::arg("rules"), py::arg("counter_system") = "Hi-Lo");
+
     // =================================================================
-    // ADVANCED EV ENGINE BINDINGS - SINGLE DEFINITION
+    // ADVANCED EV ENGINE BINDINGS
     // =================================================================
 
-    // DetailedEV structure
-    py::class_<bjlogic::DetailedEV>(m, "DetailedEV")
-        .def_readonly("stand_ev", &bjlogic::DetailedEV::stand_ev)
-        .def_readonly("hit_ev", &bjlogic::DetailedEV::hit_ev)
-        .def_readonly("double_ev", &bjlogic::DetailedEV::double_ev)
-        .def_readonly("split_ev", &bjlogic::DetailedEV::split_ev)
-        .def_readonly("surrender_ev", &bjlogic::DetailedEV::surrender_ev)
-        .def_readonly("optimal_ev", &bjlogic::DetailedEV::optimal_ev)
-        .def_readonly("true_count_adjustment", &bjlogic::DetailedEV::true_count_adjustment)
-        .def_readonly("variance", &bjlogic::DetailedEV::variance);
-
-    // RulesConfig structure exposed for Python-side configuration
+    // RulesConfig structure
     py::class_<bjlogic::RulesConfig>(m, "RulesConfig")
         .def(py::init<>())
         .def_readwrite("num_decks", &bjlogic::RulesConfig::num_decks)
@@ -765,152 +609,17 @@ PYBIND11_MODULE(bjlogic_cpp, m) {
         .def_readwrite("surrender_anytime_before_21", &bjlogic::RulesConfig::surrender_anytime_before_21)
         .def_readwrite("penetration", &bjlogic::RulesConfig::penetration);
 
-    // DealerProbabilities structure
-    py::class_<bjlogic::DealerProbabilities>(m, "DealerProbabilities")
-        .def_readonly("bust_prob", &bjlogic::DealerProbabilities::bust_prob)
-        .def_readonly("blackjack_prob", &bjlogic::DealerProbabilities::blackjack_prob)
-        .def_readonly("total_17_prob", &bjlogic::DealerProbabilities::total_17_prob)
-        .def_readonly("total_18_prob", &bjlogic::DealerProbabilities::total_18_prob)
-        .def_readonly("total_19_prob", &bjlogic::DealerProbabilities::total_19_prob)
-        .def_readonly("total_20_prob", &bjlogic::DealerProbabilities::total_20_prob)
-        .def_readonly("total_21_prob", &bjlogic::DealerProbabilities::total_21_prob)
-        .def_readonly("calculations_performed", &bjlogic::DealerProbabilities::calculations_performed)
-        .def_readonly("from_cache", &bjlogic::DealerProbabilities::from_cache)
-        .def("get_total_prob", &bjlogic::DealerProbabilities::get_total_prob)
-        .def("get_range_prob", &bjlogic::DealerProbabilities::get_range_prob);
-
-    // DeckComposition structure
-    py::class_<bjlogic::DeckComposition>(m, "DeckComposition")
-        .def(py::init<int>(), py::arg("num_decks") = 6)
-        // Bind only the API supported by the current DeckComposition implementation. The add_card and
-        // get_remaining methods have been removed from DeckComposition, so we omit those bindings.
-        .def("remove_card", &bjlogic::DeckComposition::remove_card)
-        // .def("add_card", &bjlogic::DeckComposition::add_card)  // removed
-        // .def("get_remaining", &bjlogic::DeckComposition::get_remaining)  // removed
-        .def("get_ten_cards", &bjlogic::DeckComposition::get_ten_cards)
-        .def_readonly("total_cards", &bjlogic::DeckComposition::total_cards);
-
-    // AdvancedEVEngine - SINGLE DEFINITION ONLY
+    // AdvancedEVEngine
     py::class_<bjlogic::AdvancedEVEngine>(m, "AdvancedEVEngine")
         .def(py::init<int, double>(), py::arg("depth") = 10, py::arg("precision") = 0.0001)
         .def("calculate_true_count_ev", &bjlogic::AdvancedEVEngine::calculate_true_count_ev)
-        .def("calculate_dealer_probabilities_advanced", &bjlogic::AdvancedEVEngine::calculate_dealer_probabilities_advanced)
-        .def("calculate_dealer_probabilities_with_removed", &bjlogic::AdvancedEVEngine::calculate_dealer_probabilities_with_removed)
         .def("clear_cache", &bjlogic::AdvancedEVEngine::clear_cache)
         .def("get_cache_size", &bjlogic::AdvancedEVEngine::get_cache_size);
-
-    // Test function for advanced EV engine
-    m.def("test_advanced_ev_engine", []() {
-        return "Ã°Å¸Å½Â¯ Advanced EV Calculation Engine successfully implemented!";
-    });
-
-    // Python-friendly wrapper that returns a dict for EV calculations
-    m.def("calculate_true_count_ev_dict", [](bjlogic::AdvancedEVEngine& engine,
-                                            const std::vector<int>& hand,
-                                            int dealer_upcard,
-                                            double true_count,
-                                            const py::dict& rules_dict) {
-        RulesConfig rules = dict_to_rules_config(rules_dict);
-        auto result = engine.calculate_true_count_ev(hand, dealer_upcard, true_count, rules);
-
-        py::dict py_result;
-        py_result["stand_ev"] = result.stand_ev;
-        py_result["hit_ev"] = result.hit_ev;
-        py_result["double_ev"] = result.double_ev;
-        py_result["split_ev"] = result.split_ev;
-        py_result["surrender_ev"] = result.surrender_ev;
-        py_result["optimal_ev"] = result.optimal_ev;
-        py_result["optimal_action"] = BJLogicCore::action_to_string(result.optimal_action);
-        py_result["true_count_adjustment"] = result.true_count_adjustment;
-        py_result["variance"] = result.variance;
-
-        return py_result;
-    });
-
-    // Python-friendly wrapper for dealer probabilities
-    m.def("calculate_dealer_probabilities_dict", [](bjlogic::AdvancedEVEngine& engine,
-                                                   int dealer_upcard,
-                                                   const py::list& removed_cards,
-                                                   const py::dict& rules_dict) {
-        RulesConfig rules = dict_to_rules_config(rules_dict);
-
-        // Convert removed cards list
-        std::vector<int> removed;
-        for (auto item : removed_cards) {
-            removed.push_back(py::cast<int>(item));
-        }
-
-        auto result = engine.calculate_dealer_probabilities_with_removed(dealer_upcard, removed, rules);
-
-        py::dict py_result;
-        py_result["bust_prob"] = result.bust_prob;
-        py_result["blackjack_prob"] = result.blackjack_prob;
-        py_result["total_17_prob"] = result.total_17_prob;
-        py_result["total_18_prob"] = result.total_18_prob;
-        py_result["total_19_prob"] = result.total_19_prob;
-        py_result["total_20_prob"] = result.total_20_prob;
-        py_result["total_21_prob"] = result.total_21_prob;
-        py_result["calculations_performed"] = result.calculations_performed;
-        py_result["from_cache"] = result.from_cache;
-
-        // Add full distribution as list
-        py::list distribution;
-        for (int i = 0; i < 22; ++i) {
-            distribution.append(result.total_distribution[i]);
-        }
-        py_result["total_distribution"] = distribution;
-
-        return py_result;
-    });
-
-    // Convenience function for fresh deck analysis
-    m.def("analyze_dealer_fresh_deck", [](int dealer_upcard, const py::dict& rules_dict) {
-        bjlogic::AdvancedEVEngine engine;
-        RulesConfig rules = dict_to_rules_config(rules_dict);
-
-        auto result = engine.calculate_dealer_probabilities_fresh_deck(dealer_upcard, rules);
-
-        py::dict py_result;
-        py_result["bust_prob"] = result.bust_prob;
-        py_result["blackjack_prob"] = result.blackjack_prob;
-        py_result["total_17_prob"] = result.total_17_prob;
-        py_result["total_18_prob"] = result.total_18_prob;
-        py_result["total_19_prob"] = result.total_19_prob;
-        py_result["total_20_prob"] = result.total_20_prob;
-        py_result["total_21_prob"] = result.total_21_prob;
-        py_result["from_cache"] = result.from_cache;
-
-        return py_result;
-    });
-
-    // Performance analysis function
-    m.def("dealer_probability_performance_test", [](bjlogic::AdvancedEVEngine& engine) {
-        py::dict stats;
-
-        // Test performance with different scenarios
-        RulesConfig rules;
-        bjlogic::DeckComposition deck(6);
-
-        auto start = std::chrono::high_resolution_clock::now();
-
-        // Run multiple calculations
-        for (int upcard = 1; upcard <= 10; ++upcard) {
-            engine.calculate_dealer_probabilities_advanced(upcard, deck, rules);
-        }
-
-        auto end = std::chrono::high_resolution_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-
-        stats["calculation_time_microseconds"] = duration.count();
-        stats["cache_size"] = engine.get_cache_size();
-
-        return stats;
-    });
 
     // =================================================================
     // VERSION INFO
     // =================================================================
 
-    m.attr("__version__") = "2.3.1-advanced-ev";
+    m.attr("__version__") = "2.3.1-advanced-ev-fixed";
     m.attr("__phase__") = "Advanced EV Calculation Engine with Dealer Probabilities";
 }
